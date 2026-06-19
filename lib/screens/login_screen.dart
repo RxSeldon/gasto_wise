@@ -33,17 +33,8 @@ class _LoginScreenState extends State<LoginScreen> {
           _isLoading = false;
         });
 
-        // Show success message
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Login successful!'),
-            backgroundColor: Colors.green,
-            duration: Duration(seconds: 2),
-          ),
-        );
-
-        // Navigate to dashboard (to be implemented)
-        // Navigator.of(context).pushReplacementNamed('/dashboard');
+        // Navigate to dashboard
+        Navigator.of(context).pushReplacementNamed('/dashboard');
       });
     }
   }
