@@ -283,11 +283,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 icon: Icons.add_circle_outline,
                 label: 'Add Expense',
                 onPressed: () {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Add Expense screen coming soon'),
-                    ),
-                  );
+                  Navigator.of(context).pushNamed('/add-expense');
                 },
               ),
             ),
@@ -486,9 +482,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           case 0:
             break; // Already on dashboard
           case 1:
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Add Expense screen coming soon')),
-            );
+            Navigator.of(context).pushNamed('/add-expense');
             break;
           case 2:
             ScaffoldMessenger.of(context).showSnackBar(
