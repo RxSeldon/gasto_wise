@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'dashboard_screen.dart';
 import 'add_expense_screen.dart';
+import 'expense_history_screen.dart';
 
 class MainShell extends StatefulWidget {
   const MainShell({super.key});
@@ -20,7 +21,7 @@ class _MainShellState extends State<MainShell> {
     _screens = [
       const DashboardScreen(),
       const AddExpenseScreen(),
-      const ExpenseHistoryPlaceholder(),
+      const ExpenseHistoryScreen(),
       const ProfilePlaceholder(),
     ];
   }
@@ -59,43 +60,7 @@ class _MainShellState extends State<MainShell> {
   }
 }
 
-// Placeholder screens for future implementation
-class ExpenseHistoryPlaceholder extends StatelessWidget {
-  const ExpenseHistoryPlaceholder({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Expense History'),
-        backgroundColor: Colors.blue.shade800,
-        elevation: 0,
-        automaticallyImplyLeading: false,
-      ),
-      body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.history, size: 80, color: Colors.blue.shade200),
-            const SizedBox(height: 16),
-            Text(
-              'Expense History',
-              style: Theme.of(context).textTheme.headlineSmall,
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Coming soon...',
-              style: Theme.of(
-                context,
-              ).textTheme.bodyMedium?.copyWith(color: Colors.grey[600]),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
+// Placeholder screen for future implementation
 class ProfilePlaceholder extends StatelessWidget {
   const ProfilePlaceholder({super.key});
 
