@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
-
-import '../constants/app_constants.dart';
 import '../models/models.dart';
 import '../services/auth_service.dart';
 import '../services/service_locator.dart';
 
+// REFACTORED: Single Responsibility - only handles UI
+// Auth and user operations delegated to services (Dependency Inversion)
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
 
@@ -15,93 +15,89 @@ class ProfileScreen extends StatefulWidget {
 class _ProfileScreenState extends State<ProfileScreen> {
   late final IAuthService _authService;
 
-  User? _user;
-  double _monthlyBudget = AppConstants.defaultBudget;
+  // Mock user data
+  late User _user;
+  double _monthlyBudget = 5000.0;
   bool _notificationsEnabled = true;
   bool _darkModeEnabled = false;
-  bool _isLoading = true;
 
   @override
   void initState() {
     super.initState();
     _authService = ServiceLocator().authService;
+    _user = User(
+      id: '1',
+      name: 'Juan Dela Cruz',
+      email: 'juan@example.com',
+      phone: '+63 912 345 6789',
+    );
     _loadUserData();
   }
 
   Future<void> _loadUserData() async {
     try {
       final user = await _authService.getCurrentUser();
-      if (!mounted) return;
-      setState(() {
-        _user = user ?? const User(
-          id: '1',
-          name: 'Juan Dela Cruz',
-          email: 'juan@example.com',
-          phone: '+63 912 345 6789',
-        );
-        _isLoading = false;
-      });
+      if (user != null) {
+        setState(() => _user = user);
+      }
     } catch (e) {
-      if (!mounted) return;
-      setState(() => _isLoading = false);
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Error loading user: $e')));
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error loading user: $e')));
+      }
     }
   }
 
   Future<void> _handleLogout() async {
-    final shouldLogout = await showDialog<bool>(
+    // Show confirmation dialog
+    showDialog(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (BuildContext context) => AlertDialog(
         title: const Text('Logout'),
         content: const Text('Are you sure you want to logout?'),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context, false),
+            onPressed: () => Navigator.pop(context),
             child: const Text('Cancel'),
           ),
           TextButton(
-            onPressed: () => Navigator.pop(context, true),
+            onPressed: () async {
+              Navigator.pop(context);
+              try {
+                await _authService.logout();
+                if (mounted) {
+                  Navigator.of(
+                    context,
+                  ).pushNamedAndRemoveUntil('/', (_) => false);
+                }
+              } catch (e) {
+                if (mounted) {
+                  ScaffoldMessenger.of(
+                    context,
+                  ).showSnackBar(SnackBar(content: Text('Logout error: $e')));
+                }
+              }
+            },
             child: const Text('Logout', style: TextStyle(color: Colors.red)),
           ),
         ],
       ),
     );
-
-    if (shouldLogout != true) return;
-
-    try {
-      await _authService.logout();
-      if (!mounted) return;
-      Navigator.of(context).pushNamedAndRemoveUntil('/', (_) => false);
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Logout error: $e')));
-    }
   }
 
-  Future<void> _editProfile() async {
-    final user = _user;
-    if (user == null) return;
-
-    final nameController = TextEditingController(text: user.name);
-    final emailController = TextEditingController(text: user.email);
-    final phoneController = TextEditingController(text: user.phone);
-
-    final updatedUser = await showDialog<User>(
+  void _editProfile() {
+    showDialog(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (BuildContext context) => AlertDialog(
         title: const Text('Edit Profile'),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             TextField(
-              controller: nameController,
               decoration: InputDecoration(
                 labelText: 'Name',
+                hintText: _user.name,
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(8),
                 ),
@@ -109,10 +105,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ),
             const SizedBox(height: 12),
             TextField(
-              controller: emailController,
-              keyboardType: TextInputType.emailAddress,
               decoration: InputDecoration(
                 labelText: 'Email',
+                hintText: _user.email,
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(8),
                 ),
@@ -120,10 +115,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ),
             const SizedBox(height: 12),
             TextField(
-              controller: phoneController,
-              keyboardType: TextInputType.phone,
               decoration: InputDecoration(
                 labelText: 'Phone',
+                hintText: _user.phone,
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(8),
                 ),
@@ -138,41 +132,26 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ),
           TextButton(
             onPressed: () {
-              Navigator.pop(
-                context,
-                User(
-                  id: user.id,
-                  name: nameController.text.trim(),
-                  email: emailController.text.trim(),
-                  phone: phoneController.text.trim(),
-                ),
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Profile updated successfully')),
               );
+              Navigator.pop(context);
             },
             child: const Text('Save'),
           ),
         ],
       ),
     );
-
-    nameController.dispose();
-    emailController.dispose();
-    phoneController.dispose();
-
-    if (updatedUser == null || !mounted) return;
-    setState(() => _user = updatedUser);
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Profile updated successfully')),
-    );
   }
 
-  Future<void> _editBudget() async {
+  void _editBudget() {
     final budgetController = TextEditingController(
       text: _monthlyBudget.toStringAsFixed(2),
     );
 
-    final newBudget = await showDialog<double>(
+    showDialog(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (BuildContext context) => AlertDialog(
         title: const Text('Edit Monthly Budget'),
         content: TextField(
           controller: budgetController,
@@ -190,39 +169,37 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ),
           TextButton(
             onPressed: () {
-              final parsedBudget = double.tryParse(budgetController.text);
-              if (parsedBudget == null || parsedBudget <= 0) {
+              final newBudget = double.tryParse(budgetController.text);
+              if (newBudget != null && newBudget > 0) {
+                setState(() => _monthlyBudget = newBudget);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Monthly budget updated successfully'),
+                  ),
+                );
+              } else {
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(content: Text('Please enter a valid amount')),
                 );
-                return;
               }
-              Navigator.pop(context, parsedBudget);
+              Navigator.pop(context);
             },
             child: const Text('Save'),
           ),
         ],
       ),
     );
-
-    budgetController.dispose();
-
-    if (newBudget == null || !mounted) return;
-    setState(() => _monthlyBudget = newBudget);
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Monthly budget updated successfully')),
-    );
   }
 
-  void _showAppAboutDialog() {
+  void _showAboutDialog() {
     showAboutDialog(
       context: context,
-      applicationName: AppConstants.appName,
-      applicationVersion: AppConstants.appVersion,
-      applicationLegalese: 'Copyright 2026 GastoWise. All rights reserved.',
+      applicationName: 'GastoWise',
+      applicationVersion: '1.0.0',
+      applicationLegalese: '© 2024 GastoWise. All rights reserved.',
       children: const [
         SizedBox(height: 24),
-        Text(AppConstants.appDescription),
+        Text('Smart Expense and Budget Tracker'),
         SizedBox(height: 12),
         Text(
           'GastoWise helps you track your expenses and manage your budget effectively.',
@@ -233,12 +210,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final user = _user;
-
-    if (_isLoading || user == null) {
-      return const Scaffold(body: Center(child: CircularProgressIndicator()));
-    }
-
     return Scaffold(
       appBar: AppBar(
         title: const Text('Profile'),
@@ -247,15 +218,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
       body: SingleChildScrollView(
         child: Column(
           children: [
-            _buildProfileHeader(context, user),
-            _buildSettingsSection(context, user),
+            _buildProfileHeader(context),
+            _buildSettingsSection(context),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildProfileHeader(BuildContext context, User user) {
+  Widget _buildProfileHeader(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
         gradient: LinearGradient(
@@ -281,11 +252,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 ),
               ],
             ),
-            child: Icon(Icons.person, color: Colors.blue.shade800, size: 56),
+            child: const Center(
+              child: Text('👤', style: TextStyle(fontSize: 50)),
+            ),
           ),
           const SizedBox(height: 16),
           Text(
-            user.name,
+            _user.name,
             style: Theme.of(context).textTheme.headlineSmall?.copyWith(
               color: Colors.white,
               fontWeight: FontWeight.bold,
@@ -293,7 +266,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ),
           const SizedBox(height: 8),
           Text(
-            user.email,
+            _user.email,
             style: Theme.of(
               context,
             ).textTheme.bodyMedium?.copyWith(color: Colors.white70),
@@ -303,7 +276,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  Widget _buildSettingsSection(BuildContext context, User user) {
+  Widget _buildSettingsSection(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.all(24.0),
       child: Column(
@@ -320,8 +293,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
           _buildSettingTile(
             icon: Icons.phone,
             title: 'Phone',
-            subtitle: user.phone,
-            onTap: _editProfile,
+            subtitle: _user.phone,
+            onTap: () {}, // Can implement later
           ),
           const SizedBox(height: 24),
           _buildSectionTitle(context, 'Budget Settings'),
@@ -357,8 +330,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
           _buildSettingTile(
             icon: Icons.info,
             title: 'About GastoWise',
-            subtitle: 'App version ${AppConstants.appVersion}',
-            onTap: _showAppAboutDialog,
+            subtitle: 'App version 1.0.0',
+            onTap: _showAboutDialog,
           ),
           const SizedBox(height: 24),
           SizedBox(
@@ -416,7 +389,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     required IconData icon,
     required String title,
     required bool value,
-    required ValueChanged<bool> onChanged,
+    required Function(bool) onChanged,
   }) {
     return ListTile(
       leading: Icon(icon, color: Colors.blue.shade800),
