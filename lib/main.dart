@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'screens/login_screen.dart';
 import 'screens/main_shell.dart';
+import 'services/service_locator.dart';
 
 void main() {
+  // Initialize all services via dependency injection
+  ServiceLocator().setupServices();
   runApp(const MyApp());
 }
 

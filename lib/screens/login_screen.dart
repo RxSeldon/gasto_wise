@@ -1,5 +1,10 @@
 import 'package:flutter/material.dart';
 
+import '../constants/app_constants.dart';
+import '../services/auth_service.dart';
+import '../services/service_locator.dart';
+import '../services/validation_service.dart';
+
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
 
@@ -8,11 +13,21 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
+  late final IValidationService _validationService;
+  late final IAuthService _authService;
+
   final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _isPasswordVisible = false;
   bool _isLoading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _validationService = ServiceLocator().validationService;
+    _authService = ServiceLocator().authService;
+  }
 
   @override
   void dispose() {
@@ -21,45 +36,35 @@ class _LoginScreenState extends State<LoginScreen> {
     super.dispose();
   }
 
-  void _handleLogin() {
-    if (_formKey.currentState!.validate()) {
-      setState(() {
-        _isLoading = true;
-      });
+  String? _validateEmailField(String? value) =>
+      _validationService.validateEmail(value ?? '');
 
-      // Simulate login process
-      Future.delayed(const Duration(seconds: 2), () {
-        setState(() {
-          _isLoading = false;
-        });
+  String? _validatePasswordField(String? value) =>
+      _validationService.validatePassword(value ?? '');
 
-        // Navigate to main shell
-        Navigator.of(context).pushReplacementNamed('/home');
-      });
-    }
-  }
+  Future<void> _handleLogin() async {
+    if (!_formKey.currentState!.validate()) return;
 
-  String? _validateEmail(String? value) {
-    if (value == null || value.isEmpty) {
-      return 'Email is required';
-    }
-    final emailRegex = RegExp(
-      r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$',
-    );
-    if (!emailRegex.hasMatch(value)) {
-      return 'Please enter a valid email';
-    }
-    return null;
-  }
+    setState(() => _isLoading = true);
 
-  String? _validatePassword(String? value) {
-    if (value == null || value.isEmpty) {
-      return 'Password is required';
+    try {
+      await _authService.login(
+        _emailController.text.trim(),
+        _passwordController.text,
+      );
+
+      if (!mounted) return;
+      Navigator.of(context).pushReplacementNamed('/home');
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Login failed: $e')),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
     }
-    if (value.length < 6) {
-      return 'Password must be at least 6 characters';
-    }
-    return null;
   }
 
   @override
@@ -81,7 +86,6 @@ class _LoginScreenState extends State<LoginScreen> {
               mainAxisAlignment: MainAxisAlignment.center,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                // App Logo/Header
                 Center(
                   child: Column(
                     children: [
@@ -93,22 +97,21 @@ class _LoginScreenState extends State<LoginScreen> {
                           color: Colors.white,
                           boxShadow: [
                             BoxShadow(
-                              color: Colors.black.withOpacity(0.2),
+                              color: Colors.black.withValues(alpha: 0.2),
                               blurRadius: 10,
                               offset: const Offset(0, 4),
                             ),
                           ],
                         ),
-                        child: Center(
-                          child: Text(
-                            '💰',
-                            style: Theme.of(context).textTheme.headlineLarge,
-                          ),
+                        child: Icon(
+                          Icons.account_balance_wallet,
+                          color: Colors.blue.shade800,
+                          size: 42,
                         ),
                       ),
                       const SizedBox(height: 20),
                       Text(
-                        'GastoWise',
+                        AppConstants.appName,
                         style: Theme.of(context).textTheme.headlineLarge
                             ?.copyWith(
                               color: Colors.white,
@@ -117,17 +120,15 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                       const SizedBox(height: 8),
                       Text(
-                        'Smart Expense Tracker',
+                        AppConstants.appDescription,
                         style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                          color: Colors.white.withOpacity(0.9),
+                          color: Colors.white.withValues(alpha: 0.9),
                         ),
                       ),
                     ],
                   ),
                 ),
                 const SizedBox(height: 50),
-
-                // Login Form
                 Card(
                   elevation: 8,
                   shape: RoundedRectangleBorder(
@@ -140,7 +141,6 @@ class _LoginScreenState extends State<LoginScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          // Welcome Text
                           Text(
                             'Welcome Back',
                             style: Theme.of(context).textTheme.headlineSmall
@@ -153,11 +153,9 @@ class _LoginScreenState extends State<LoginScreen> {
                                 ?.copyWith(color: Colors.grey[600]),
                           ),
                           const SizedBox(height: 24),
-
-                          // Email Field
                           TextFormField(
                             controller: _emailController,
-                            validator: _validateEmail,
+                            validator: _validateEmailField,
                             decoration: InputDecoration(
                               labelText: 'Email',
                               hintText: 'Enter your email',
@@ -178,11 +176,9 @@ class _LoginScreenState extends State<LoginScreen> {
                             keyboardType: TextInputType.emailAddress,
                           ),
                           const SizedBox(height: 16),
-
-                          // Password Field
                           TextFormField(
                             controller: _passwordController,
-                            validator: _validatePassword,
+                            validator: _validatePasswordField,
                             obscureText: !_isPasswordVisible,
                             decoration: InputDecoration(
                               labelText: 'Password',
@@ -215,13 +211,10 @@ class _LoginScreenState extends State<LoginScreen> {
                             ),
                           ),
                           const SizedBox(height: 12),
-
-                          // Forgot Password Link
                           Align(
                             alignment: Alignment.centerRight,
                             child: TextButton(
                               onPressed: () {
-                                // TODO: Implement forgot password
                                 ScaffoldMessenger.of(context).showSnackBar(
                                   const SnackBar(
                                     content: Text(
@@ -240,8 +233,6 @@ class _LoginScreenState extends State<LoginScreen> {
                             ),
                           ),
                           const SizedBox(height: 24),
-
-                          // Login Button
                           ElevatedButton(
                             onPressed: _isLoading ? null : _handleLogin,
                             style: ElevatedButton.styleFrom(
@@ -273,8 +264,6 @@ class _LoginScreenState extends State<LoginScreen> {
                                   ),
                           ),
                           const SizedBox(height: 16),
-
-                          // Divider
                           Row(
                             children: [
                               Expanded(
@@ -301,8 +290,6 @@ class _LoginScreenState extends State<LoginScreen> {
                             ],
                           ),
                           const SizedBox(height: 16),
-
-                          // Sign Up Link
                           Row(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
@@ -312,7 +299,6 @@ class _LoginScreenState extends State<LoginScreen> {
                               ),
                               TextButton(
                                 onPressed: () {
-                                  // TODO: Navigate to sign up screen
                                   ScaffoldMessenger.of(context).showSnackBar(
                                     const SnackBar(
                                       content: Text(
