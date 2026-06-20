@@ -33,8 +33,8 @@ class _LoginScreenState extends State<LoginScreen> {
           _isLoading = false;
         });
 
-        // Navigate to dashboard
-        Navigator.of(context).pushReplacementNamed('/dashboard');
+        // Navigate to main shell
+        Navigator.of(context).pushReplacementNamed('/home');
       });
     }
   }
@@ -72,10 +72,7 @@ class _LoginScreenState extends State<LoginScreen> {
             gradient: LinearGradient(
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
-              colors: [
-                Colors.blue.shade400,
-                Colors.blue.shade800,
-              ],
+              colors: [Colors.blue.shade400, Colors.blue.shade800],
             ),
           ),
           child: Padding(
@@ -112,10 +109,11 @@ class _LoginScreenState extends State<LoginScreen> {
                       const SizedBox(height: 20),
                       Text(
                         'GastoWise',
-                        style: Theme.of(context).textTheme.headlineLarge?.copyWith(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                        ),
+                        style: Theme.of(context).textTheme.headlineLarge
+                            ?.copyWith(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                            ),
                       ),
                       const SizedBox(height: 8),
                       Text(
@@ -145,16 +143,14 @@ class _LoginScreenState extends State<LoginScreen> {
                           // Welcome Text
                           Text(
                             'Welcome Back',
-                            style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                              fontWeight: FontWeight.bold,
-                            ),
+                            style: Theme.of(context).textTheme.headlineSmall
+                                ?.copyWith(fontWeight: FontWeight.bold),
                           ),
                           const SizedBox(height: 8),
                           Text(
                             'Sign in to your account',
-                            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                              color: Colors.grey[600],
-                            ),
+                            style: Theme.of(context).textTheme.bodyMedium
+                                ?.copyWith(color: Colors.grey[600]),
                           ),
                           const SizedBox(height: 24),
 
@@ -228,7 +224,9 @@ class _LoginScreenState extends State<LoginScreen> {
                                 // TODO: Implement forgot password
                                 ScaffoldMessenger.of(context).showSnackBar(
                                   const SnackBar(
-                                    content: Text('Forgot password feature coming soon'),
+                                    content: Text(
+                                      'Forgot password feature coming soon',
+                                    ),
                                   ),
                                 );
                               },
@@ -256,25 +254,23 @@ class _LoginScreenState extends State<LoginScreen> {
                             ),
                             child: _isLoading
                                 ? const SizedBox(
-                              height: 20,
-                              width: 20,
-                              child: CircularProgressIndicator(
-                                valueColor: AlwaysStoppedAnimation<Color>(
-                                  Colors.white,
-                                ),
-                                strokeWidth: 2,
-                              ),
-                            )
+                                    height: 20,
+                                    width: 20,
+                                    child: CircularProgressIndicator(
+                                      valueColor: AlwaysStoppedAnimation<Color>(
+                                        Colors.white,
+                                      ),
+                                      strokeWidth: 2,
+                                    ),
+                                  )
                                 : Text(
-                              'Sign In',
-                              style: Theme.of(context)
-                                  .textTheme
-                                  .bodyLarge
-                                  ?.copyWith(
-                                color: Colors.white,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
+                                    'Sign In',
+                                    style: Theme.of(context).textTheme.bodyLarge
+                                        ?.copyWith(
+                                          color: Colors.white,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                  ),
                           ),
                           const SizedBox(height: 16),
 
@@ -293,9 +289,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                 ),
                                 child: Text(
                                   'Or',
-                                  style: TextStyle(
-                                    color: Colors.grey[600],
-                                  ),
+                                  style: TextStyle(color: Colors.grey[600]),
                                 ),
                               ),
                               Expanded(
@@ -321,7 +315,9 @@ class _LoginScreenState extends State<LoginScreen> {
                                   // TODO: Navigate to sign up screen
                                   ScaffoldMessenger.of(context).showSnackBar(
                                     const SnackBar(
-                                      content: Text('Sign up feature coming soon'),
+                                      content: Text(
+                                        'Sign up feature coming soon',
+                                      ),
                                     ),
                                   );
                                 },

@@ -151,7 +151,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ],
         ),
       ),
-      bottomNavigationBar: _buildBottomNavigationBar(context),
     );
   }
 
@@ -283,7 +282,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 icon: Icons.add_circle_outline,
                 label: 'Add Expense',
                 onPressed: () {
-                  Navigator.of(context).pushNamed('/add-expense');
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text(
+                        'Tap the Add Expense tab below to record an expense',
+                      ),
+                      duration: Duration(seconds: 2),
+                    ),
+                  );
                 },
               ),
             ),
@@ -467,49 +473,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ),
         ],
       ),
-    );
-  }
-
-  Widget _buildBottomNavigationBar(BuildContext context) {
-    return BottomNavigationBar(
-      type: BottomNavigationBarType.fixed,
-      currentIndex: 0,
-      backgroundColor: Colors.white,
-      selectedItemColor: Colors.blue.shade800,
-      unselectedItemColor: Colors.grey,
-      onTap: (index) {
-        switch (index) {
-          case 0:
-            break; // Already on dashboard
-          case 1:
-            Navigator.of(context).pushNamed('/add-expense');
-            break;
-          case 2:
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('Expense History screen coming soon'),
-              ),
-            );
-            break;
-          case 3:
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Profile screen coming soon')),
-            );
-            break;
-        }
-      },
-      items: const [
-        BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Dashboard'),
-        BottomNavigationBarItem(
-          icon: Icon(Icons.add_circle_outline),
-          label: 'Add Expense',
-        ),
-        BottomNavigationBarItem(icon: Icon(Icons.history), label: 'History'),
-        BottomNavigationBarItem(
-          icon: Icon(Icons.account_circle_outlined),
-          label: 'Profile',
-        ),
-      ],
     );
   }
 }

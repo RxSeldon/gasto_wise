@@ -120,10 +120,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
         title: const Text('Add Expense'),
         backgroundColor: Colors.blue.shade800,
         elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          onPressed: () => Navigator.of(context).pop(),
-        ),
+        automaticallyImplyLeading: false,
       ),
       body: SingleChildScrollView(
         child: Container(
@@ -369,7 +366,22 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
 
                           // Cancel Button
                           OutlinedButton(
-                            onPressed: () => Navigator.of(context).pop(),
+                            onPressed: () {
+                              // Clear form
+                              _formKey.currentState!.reset();
+                              _amountController.clear();
+                              _descriptionController.clear();
+                              setState(() {
+                                _selectedCategory = null;
+                                _selectedDate = DateTime.now();
+                              });
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text('Form cleared'),
+                                  duration: Duration(seconds: 1),
+                                ),
+                              );
+                            },
                             style: OutlinedButton.styleFrom(
                               padding: const EdgeInsets.symmetric(vertical: 14),
                               side: BorderSide(color: Colors.blue.shade800),

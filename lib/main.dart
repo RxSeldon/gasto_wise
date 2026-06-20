@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'screens/login_screen.dart';
-import 'screens/dashboard_screen.dart';
-import 'screens/add_expense_screen.dart';
+import 'screens/main_shell.dart';
 
 void main() {
   runApp(const MyApp());
@@ -24,10 +23,7 @@ class MyApp extends StatelessWidget {
         fontFamily: 'Roboto',
       ),
       home: const LoginScreen(),
-      routes: {
-        '/dashboard': (context) => const DashboardScreen(),
-        '/add-expense': (context) => const AddExpenseScreen(),
-      },
+      routes: {'/home': (context) => const MainShell()},
     );
   }
 }
