@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart' as supabase;
 
 import '../constants/app_constants.dart';
 import '../services/auth_service.dart';
@@ -63,14 +64,47 @@ class _LoginScreenState extends State<LoginScreen> {
       Navigator.of(context).pushReplacementNamed('/home');
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Login failed: $e')),
-      );
+      await _handleLoginError(e);
     } finally {
       if (mounted) {
         setState(() => _isLoading = false);
       }
     }
+  }
+
+  Future<void> _handleLoginError(Object error) async {
+    if (_isEmailNotConfirmed(error)) {
+      final email = _emailController.text.trim();
+      try {
+        await _authService.resendSignUpConfirmation(email);
+      } catch (_) {
+        // The original problem is still the important one to show.
+      }
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please confirm your email before signing in.'),
+        ),
+      );
+      return;
+    }
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Login failed: ${_readableAuthError(error)}')),
+    );
+  }
+
+  bool _isEmailNotConfirmed(Object error) {
+    return error is supabase.AuthException &&
+        (error.code == 'email_not_confirmed' ||
+            error.message.toLowerCase().contains('email not confirmed'));
+  }
+
+  String _readableAuthError(Object error) {
+    if (error is supabase.AuthException) {
+      return error.message;
+    }
+    return error.toString();
   }
 
   @override

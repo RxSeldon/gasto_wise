@@ -2,6 +2,15 @@
 
 A new Flutter project.
 
+## Supabase config
+
+Do not commit your real Supabase keys. Copy `supabase_config.example.json` to
+`supabase_config.json`, fill in your local values, then run:
+
+```bash
+flutter run -d chrome --dart-define-from-file=supabase_config.json
+```
+
 ## Getting Started
 
 This project is a starting point for a Flutter application.

@@ -10,6 +10,7 @@ abstract class IAuthService {
     required String email,
     required String password,
   });
+  Future<void> resendSignUpConfirmation(String email);
   Future<void> logout();
   Future<User?> getCurrentUser();
   Future<bool> isLoggedIn();
@@ -54,6 +55,14 @@ class AuthService implements IAuthService {
       await _ensureUserProfile(user);
     }
     return user;
+  }
+
+  @override
+  Future<void> resendSignUpConfirmation(String email) async {
+    await _client.auth.resend(
+      type: supabase.OtpType.signup,
+      email: email,
+    );
   }
 
   @override
