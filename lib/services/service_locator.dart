@@ -21,7 +21,7 @@ class ServiceLocator {
   void setupServices() {
     if (_isSetup) return;
 
-    _expenseRepository = MockExpenseRepository();
+    _expenseRepository = SupabaseExpenseRepository();
     _expenseService = ExpenseService(repository: _expenseRepository);
     _budgetService = BudgetService(
       expenseRepository: _expenseRepository,

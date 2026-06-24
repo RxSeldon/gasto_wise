@@ -5,21 +5,25 @@ import '../services/auth_service.dart';
 import '../services/service_locator.dart';
 import '../services/validation_service.dart';
 
-class LoginScreen extends StatefulWidget {
-  const LoginScreen({super.key});
+class RegisterScreen extends StatefulWidget {
+  const RegisterScreen({super.key});
 
   @override
-  State<LoginScreen> createState() => _LoginScreenState();
+  State<RegisterScreen> createState() => _RegisterScreenState();
 }
 
-class _LoginScreenState extends State<LoginScreen> {
+class _RegisterScreenState extends State<RegisterScreen> {
   late final IValidationService _validationService;
   late final IAuthService _authService;
 
   final _formKey = GlobalKey<FormState>();
+  final _nameController = TextEditingController();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
+  final _confirmPasswordController = TextEditingController();
+
   bool _isPasswordVisible = false;
+  bool _isConfirmPasswordVisible = false;
   bool _isLoading = false;
 
   @override
@@ -31,41 +35,66 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   void dispose() {
+    _nameController.dispose();
     _emailController.dispose();
     _passwordController.dispose();
+    _confirmPasswordController.dispose();
     super.dispose();
   }
 
-  String? _validateEmailField(String? value) =>
-      _validationService.validateEmail(value ?? '');
+  String? _validateName(String? value) =>
+      _validationService.validateName(value?.trim() ?? '');
 
-  String? _validatePasswordField(String? value) =>
+  String? _validateEmail(String? value) =>
+      _validationService.validateEmail(value?.trim() ?? '');
+
+  String? _validatePassword(String? value) =>
       _validationService.validatePassword(value ?? '');
 
-  Future<void> _handleLogin() async {
+  String? _validateConfirmPassword(String? value) {
+    final passwordError = _validationService.validatePassword(value ?? '');
+    if (passwordError != null) return passwordError;
+    if (value != _passwordController.text) {
+      return 'Passwords do not match';
+    }
+    return null;
+  }
+
+  Future<void> _handleRegister() async {
     if (!_formKey.currentState!.validate()) return;
 
     setState(() => _isLoading = true);
 
     try {
-      final user = await _authService.login(
-        _emailController.text.trim(),
-        _passwordController.text,
+      final user = await _authService.signUp(
+        fullName: _nameController.text.trim(),
+        email: _emailController.text.trim(),
+        password: _passwordController.text,
       );
 
       if (!mounted) return;
       if (user == null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Login failed: no user returned')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Registration failed')));
         return;
       }
-      Navigator.of(context).pushReplacementNamed('/home');
+
+      final isLoggedIn = await _authService.isLoggedIn();
+      if (!mounted) return;
+      if (isLoggedIn) {
+        Navigator.of(context).pushNamedAndRemoveUntil('/home', (_) => false);
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Check your email to confirm signup')),
+        );
+        Navigator.of(context).pushNamedAndRemoveUntil('/', (_) => false);
+      }
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Login failed: $e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Registration failed: $e')));
     } finally {
       if (mounted) {
         setState(() => _isLoading = false);
@@ -78,7 +107,9 @@ class _LoginScreenState extends State<LoginScreen> {
     return Scaffold(
       body: SingleChildScrollView(
         child: Container(
-          height: MediaQuery.of(context).size.height,
+          constraints: BoxConstraints(
+            minHeight: MediaQuery.of(context).size.height,
+          ),
           decoration: BoxDecoration(
             gradient: LinearGradient(
               begin: Alignment.topLeft,
@@ -87,7 +118,7 @@ class _LoginScreenState extends State<LoginScreen> {
             ),
           ),
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 24.0),
+            padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 40),
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -96,8 +127,8 @@ class _LoginScreenState extends State<LoginScreen> {
                   child: Column(
                     children: [
                       Container(
-                        height: 80,
-                        width: 80,
+                        height: 76,
+                        width: 76,
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
                           color: Colors.white,
@@ -112,10 +143,10 @@ class _LoginScreenState extends State<LoginScreen> {
                         child: Icon(
                           Icons.account_balance_wallet,
                           color: Colors.blue.shade800,
-                          size: 42,
+                          size: 40,
                         ),
                       ),
-                      const SizedBox(height: 20),
+                      const SizedBox(height: 18),
                       Text(
                         AppConstants.appName,
                         style: Theme.of(context).textTheme.headlineLarge
@@ -124,17 +155,10 @@ class _LoginScreenState extends State<LoginScreen> {
                               fontWeight: FontWeight.bold,
                             ),
                       ),
-                      const SizedBox(height: 8),
-                      Text(
-                        AppConstants.appDescription,
-                        style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                          color: Colors.white.withValues(alpha: 0.9),
-                        ),
-                      ),
                     ],
                   ),
                 ),
-                const SizedBox(height: 50),
+                const SizedBox(height: 32),
                 Card(
                   elevation: 8,
                   shape: RoundedRectangleBorder(
@@ -148,48 +172,47 @@ class _LoginScreenState extends State<LoginScreen> {
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
                           Text(
-                            'Welcome Back',
+                            'Create Account',
                             style: Theme.of(context).textTheme.headlineSmall
                                 ?.copyWith(fontWeight: FontWeight.bold),
                           ),
                           const SizedBox(height: 8),
                           Text(
-                            'Sign in to your account',
+                            'Start tracking your expenses',
                             style: Theme.of(context).textTheme.bodyMedium
                                 ?.copyWith(color: Colors.grey[600]),
                           ),
                           const SizedBox(height: 24),
                           TextFormField(
+                            controller: _nameController,
+                            validator: _validateName,
+                            textCapitalization: TextCapitalization.words,
+                            decoration: _inputDecoration(
+                              labelText: 'Full Name',
+                              hintText: 'Enter your full name',
+                              icon: Icons.person_outline,
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                          TextFormField(
                             controller: _emailController,
-                            validator: _validateEmailField,
-                            decoration: InputDecoration(
+                            validator: _validateEmail,
+                            keyboardType: TextInputType.emailAddress,
+                            decoration: _inputDecoration(
                               labelText: 'Email',
                               hintText: 'Enter your email',
-                              prefixIcon: const Icon(Icons.email_outlined),
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              focusedBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(12),
-                                borderSide: BorderSide(
-                                  color: Colors.blue.shade800,
-                                  width: 2,
-                                ),
-                              ),
-                              filled: true,
-                              fillColor: Colors.grey[50],
+                              icon: Icons.email_outlined,
                             ),
-                            keyboardType: TextInputType.emailAddress,
                           ),
                           const SizedBox(height: 16),
                           TextFormField(
                             controller: _passwordController,
-                            validator: _validatePasswordField,
+                            validator: _validatePassword,
                             obscureText: !_isPasswordVisible,
-                            decoration: InputDecoration(
+                            decoration: _inputDecoration(
                               labelText: 'Password',
-                              hintText: 'Enter your password',
-                              prefixIcon: const Icon(Icons.lock_outline),
+                              hintText: 'Create a password',
+                              icon: Icons.lock_outline,
                               suffixIcon: IconButton(
                                 icon: Icon(
                                   _isPasswordVisible
@@ -202,45 +225,35 @@ class _LoginScreenState extends State<LoginScreen> {
                                   });
                                 },
                               ),
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              focusedBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(12),
-                                borderSide: BorderSide(
-                                  color: Colors.blue.shade800,
-                                  width: 2,
-                                ),
-                              ),
-                              filled: true,
-                              fillColor: Colors.grey[50],
                             ),
                           ),
-                          const SizedBox(height: 12),
-                          Align(
-                            alignment: Alignment.centerRight,
-                            child: TextButton(
-                              onPressed: () {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                    content: Text(
-                                      'Forgot password feature coming soon',
-                                    ),
-                                  ),
-                                );
-                              },
-                              child: Text(
-                                'Forgot Password?',
-                                style: TextStyle(
-                                  color: Colors.blue.shade800,
-                                  fontWeight: FontWeight.w500,
+                          const SizedBox(height: 16),
+                          TextFormField(
+                            controller: _confirmPasswordController,
+                            validator: _validateConfirmPassword,
+                            obscureText: !_isConfirmPasswordVisible,
+                            decoration: _inputDecoration(
+                              labelText: 'Confirm Password',
+                              hintText: 'Confirm your password',
+                              icon: Icons.lock_reset,
+                              suffixIcon: IconButton(
+                                icon: Icon(
+                                  _isConfirmPasswordVisible
+                                      ? Icons.visibility
+                                      : Icons.visibility_off,
                                 ),
+                                onPressed: () {
+                                  setState(() {
+                                    _isConfirmPasswordVisible =
+                                        !_isConfirmPasswordVisible;
+                                  });
+                                },
                               ),
                             ),
                           ),
                           const SizedBox(height: 24),
                           ElevatedButton(
-                            onPressed: _isLoading ? null : _handleLogin,
+                            onPressed: _isLoading ? null : _handleRegister,
                             style: ElevatedButton.styleFrom(
                               backgroundColor: Colors.blue.shade800,
                               disabledBackgroundColor: Colors.grey[400],
@@ -260,59 +273,28 @@ class _LoginScreenState extends State<LoginScreen> {
                                       strokeWidth: 2,
                                     ),
                                   )
-                                : Text(
-                                    'Sign In',
-                                    style: Theme.of(context).textTheme.bodyLarge
-                                        ?.copyWith(
-                                          color: Colors.white,
-                                          fontWeight: FontWeight.bold,
-                                        ),
+                                : const Text(
+                                    'Create Account',
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.bold,
+                                    ),
                                   ),
-                          ),
-                          const SizedBox(height: 16),
-                          Row(
-                            children: [
-                              Expanded(
-                                child: Divider(
-                                  color: Colors.grey[300],
-                                  thickness: 1,
-                                ),
-                              ),
-                              Padding(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 12.0,
-                                ),
-                                child: Text(
-                                  'Or',
-                                  style: TextStyle(color: Colors.grey[600]),
-                                ),
-                              ),
-                              Expanded(
-                                child: Divider(
-                                  color: Colors.grey[300],
-                                  thickness: 1,
-                                ),
-                              ),
-                            ],
                           ),
                           const SizedBox(height: 16),
                           Row(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
                               Text(
-                                "Don't have an account? ",
+                                'Already have an account? ',
                                 style: Theme.of(context).textTheme.bodyMedium,
                               ),
                               TextButton(
                                 onPressed: _isLoading
                                     ? null
-                                    : () {
-                                        Navigator.of(
-                                          context,
-                                        ).pushNamed('/register');
-                                      },
+                                    : () => Navigator.of(context).pop(),
                                 child: Text(
-                                  'Sign Up',
+                                  'Sign In',
                                   style: TextStyle(
                                     color: Colors.blue.shade800,
                                     fontWeight: FontWeight.bold,
@@ -331,6 +313,27 @@ class _LoginScreenState extends State<LoginScreen> {
           ),
         ),
       ),
+    );
+  }
+
+  InputDecoration _inputDecoration({
+    required String labelText,
+    required String hintText,
+    required IconData icon,
+    Widget? suffixIcon,
+  }) {
+    return InputDecoration(
+      labelText: labelText,
+      hintText: hintText,
+      prefixIcon: Icon(icon),
+      suffixIcon: suffixIcon,
+      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide(color: Colors.blue.shade800, width: 2),
+      ),
+      filled: true,
+      fillColor: Colors.grey[50],
     );
   }
 }
