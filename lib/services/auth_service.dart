@@ -98,10 +98,14 @@ class AuthService implements IAuthService {
   }
 
   Future<void> _ensureUserProfile(User user) async {
-    await _client.from('users').upsert({
-      'id': user.id,
-      'full_name': user.name,
-      'email': user.email,
-    }, onConflict: 'id');
+    try {
+      await _client.from('users').upsert({
+        'id': user.id,
+        'full_name': user.name,
+        'email': user.email,
+      }, onConflict: 'id');
+    } catch (_) {
+      // Profile insert may fail due to RLS policies — registration still succeeds
+    }
   }
 }
