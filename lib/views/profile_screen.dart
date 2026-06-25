@@ -134,7 +134,7 @@ class _ProfileView extends StatelessWidget {
           keyboardType: const TextInputType.numberWithOptions(decimal: true),
           decoration: InputDecoration(
             labelText: 'Monthly Budget',
-            prefixText: '\$ ',
+            prefixText: '₱ ',
             border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
           ),
         ),
@@ -277,7 +277,7 @@ class _ProfileView extends StatelessWidget {
           _buildSettingTile(
             icon: Icons.attach_money,
             title: 'Monthly Budget',
-            subtitle: '\$${vm.monthlyBudget.toStringAsFixed(2)}',
+            subtitle: '₱${vm.monthlyBudget.toStringAsFixed(2)}',
             onTap: () => _editBudget(context),
           ),
           const SizedBox(height: 24),

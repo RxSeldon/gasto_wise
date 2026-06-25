@@ -20,7 +20,7 @@ class BudgetService implements IBudgetService {
   BudgetService({
     required IExpenseRepository expenseRepository,
     supabase.SupabaseClient? client,
-    double monthlyBudget = 5000.0,
+    double monthlyBudget = 0.0,
   }) : _expenseRepository = expenseRepository,
        _providedClient = client,
        _monthlyBudget = monthlyBudget;

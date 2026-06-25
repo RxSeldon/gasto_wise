@@ -120,7 +120,7 @@ class _DashboardView extends StatelessWidget {
                 Expanded(
                   child: _SummaryCard(
                     title: 'Total Budget',
-                    amount: '\$${vm.totalBudget.toStringAsFixed(2)}',
+                    amount: '₱${vm.totalBudget.toStringAsFixed(2)}',
                     icon: Icons.account_balance_wallet,
                     backgroundColor: Colors.white.withValues(alpha: 0.2),
                   ),
@@ -129,7 +129,7 @@ class _DashboardView extends StatelessWidget {
                 Expanded(
                   child: _SummaryCard(
                     title: 'Total Spent',
-                    amount: '\$${vm.totalExpenses.toStringAsFixed(2)}',
+                    amount: '₱${vm.totalExpenses.toStringAsFixed(2)}',
                     icon: Icons.payments,
                     backgroundColor: Colors.red.withValues(alpha: 0.2),
                   ),
@@ -139,7 +139,7 @@ class _DashboardView extends StatelessWidget {
             const SizedBox(height: 12),
             _SummaryCard(
               title: 'Remaining Budget',
-              amount: '\$${vm.remainingBudget.toStringAsFixed(2)}',
+              amount: '₱${vm.remainingBudget.toStringAsFixed(2)}',
               icon: Icons.savings,
               backgroundColor: Colors.green.withValues(alpha: 0.2),
             ),
@@ -191,7 +191,7 @@ class _DashboardView extends StatelessWidget {
         ),
         const SizedBox(height: 12),
         Text(
-          'You have spent \$${vm.totalExpenses.toStringAsFixed(2)} out of \$${vm.totalBudget.toStringAsFixed(2)}',
+          'You have spent ₱${vm.totalExpenses.toStringAsFixed(2)} out of ₱${vm.totalBudget.toStringAsFixed(2)}',
           style: Theme.of(context)
               .textTheme
               .bodySmall
@@ -480,7 +480,7 @@ class _ExpenseItemCard extends StatelessWidget {
             ),
           ),
           Text(
-            '-\$${expense.amount.toStringAsFixed(2)}',
+            '-₱${expense.amount.toStringAsFixed(2)}',
             style: Theme.of(context).textTheme.bodyLarge?.copyWith(
               color: Colors.red,
               fontWeight: FontWeight.bold,

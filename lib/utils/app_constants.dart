@@ -25,6 +25,6 @@ abstract class AppConstants {
     'Others': Icons.category,
   };
 
-  static const double defaultBudget = 5000.00;
+  static const double defaultBudget = 0.0;
   static const int minPasswordLength = 6;
 }

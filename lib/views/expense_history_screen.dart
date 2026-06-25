@@ -215,7 +215,7 @@ class _ExpenseHistoryView extends StatelessWidget {
               ),
             ),
             Text(
-              '-\$${expense.amount.toStringAsFixed(2)}',
+              '-₱${expense.amount.toStringAsFixed(2)}',
               style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                 color: Colors.red,
                 fontWeight: FontWeight.bold,
@@ -246,7 +246,7 @@ class _ExpenseHistoryView extends StatelessWidget {
                 ?.copyWith(fontWeight: FontWeight.w600),
           ),
           Text(
-            '-\$${vm.filteredTotal.toStringAsFixed(2)}',
+            '-₱${vm.filteredTotal.toStringAsFixed(2)}',
             style: Theme.of(context).textTheme.bodyLarge?.copyWith(
               color: Colors.red,
               fontWeight: FontWeight.bold,

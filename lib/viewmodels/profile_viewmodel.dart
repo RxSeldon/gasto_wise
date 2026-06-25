@@ -14,7 +14,7 @@ class ProfileViewModel extends ChangeNotifier {
     email: 'juan@example.com',
     phone: '+63 912 345 6789',
   );
-  double _monthlyBudget = 5000.0;
+  double _monthlyBudget = 0.0;
   bool _notificationsEnabled = true;
   bool _darkModeEnabled = false;
   String? _errorMessage;
