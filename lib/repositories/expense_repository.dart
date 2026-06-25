@@ -163,7 +163,7 @@ class SupabaseExpenseRepository implements IExpenseRepository {
         .eq('user_id', userId)
         .maybeSingle();
     if (row == null) return null;
-    return Expense.fromJson(row);
+    return Expense.fromJson(Map<String, dynamic>.from(row));
   }
 
   @override
@@ -174,21 +174,31 @@ class SupabaseExpenseRepository implements IExpenseRepository {
   @override
   Future<void> updateExpense(Expense expense) async {
     final expenseId = int.tryParse(expense.id);
+    final userId = _client.auth.currentUser?.id;
     if (expenseId == null) {
       throw ArgumentError.value(expense.id, 'id', 'Must be a database id');
+    }
+    if (userId == null) {
+      throw StateError('You must be logged in to update expenses.');
     }
 
     await _client
         .from(_tableName)
         .update(_toSupabaseJson(expense))
-        .eq('id', expenseId);
+        .eq('id', expenseId)
+        .eq('user_id', userId);
   }
 
   @override
   Future<void> deleteExpense(String id) async {
     final expenseId = int.tryParse(id);
-    if (expenseId == null) return;
-    await _client.from(_tableName).delete().eq('id', expenseId);
+    final userId = _client.auth.currentUser?.id;
+    if (expenseId == null || userId == null) return;
+    await _client
+        .from(_tableName)
+        .delete()
+        .eq('id', expenseId)
+        .eq('user_id', userId);
   }
 
   @override

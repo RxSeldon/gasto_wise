@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'constants/supabase_config.dart';
-import 'screens/login_screen.dart';
-import 'screens/main_shell.dart';
-import 'screens/register_screen.dart';
+import 'utils/supabase_config.dart';
+import 'views/login_screen.dart';
+import 'views/main_shell.dart';
+import 'views/register_screen.dart';
 import 'services/service_locator.dart';
 
 Future<void> main() async {
@@ -13,7 +13,6 @@ Future<void> main() async {
     anonKey: SupabaseConfig.anonKey,
   );
 
-  // Initialize all services via dependency injection
   ServiceLocator().setupServices();
   runApp(const MyApp());
 }

@@ -1,81 +1,56 @@
 import 'package:flutter/material.dart';
-import '../models/models.dart';
-import '../services/auth_service.dart';
-import '../services/service_locator.dart';
+import 'package:provider/provider.dart';
 
-// REFACTORED: Single Responsibility - only handles UI
-// Auth and user operations delegated to services (Dependency Inversion)
-class ProfileScreen extends StatefulWidget {
+import '../services/service_locator.dart';
+import '../viewmodels/profile_viewmodel.dart';
+
+class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key});
 
   @override
-  State<ProfileScreen> createState() => _ProfileScreenState();
+  Widget build(BuildContext context) {
+    return ChangeNotifierProvider(
+      create: (_) => ProfileViewModel(
+        authService: ServiceLocator().authService,
+        budgetService: ServiceLocator().budgetService,
+      )..loadUserData(),
+      child: const _ProfileView(),
+    );
+  }
 }
 
-class _ProfileScreenState extends State<ProfileScreen> {
-  late final IAuthService _authService;
+class _ProfileView extends StatelessWidget {
+  const _ProfileView();
 
-  // Mock user data
-  late User _user;
-  double _monthlyBudget = 5000.0;
-  bool _notificationsEnabled = true;
-  bool _darkModeEnabled = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _authService = ServiceLocator().authService;
-    _user = User(
-      id: '1',
-      name: 'Juan Dela Cruz',
-      email: 'juan@example.com',
-      phone: '+63 912 345 6789',
+  void _showMessage(BuildContext context, String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message)),
     );
-    _loadUserData();
   }
 
-  Future<void> _loadUserData() async {
-    try {
-      final user = await _authService.getCurrentUser();
-      if (user != null) {
-        setState(() => _user = user);
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Error loading user: $e')));
-      }
-    }
-  }
+  void _handleLogout(BuildContext context) {
+    final vm = context.read<ProfileViewModel>();
 
-  Future<void> _handleLogout() async {
-    // Show confirmation dialog
     showDialog(
       context: context,
-      builder: (BuildContext context) => AlertDialog(
+      builder: (dialogContext) => AlertDialog(
         title: const Text('Logout'),
         content: const Text('Are you sure you want to logout?'),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () => Navigator.pop(dialogContext),
             child: const Text('Cancel'),
           ),
           TextButton(
             onPressed: () async {
-              Navigator.pop(context);
-              try {
-                await _authService.logout();
-                if (mounted) {
-                  Navigator.of(
-                    context,
-                  ).pushNamedAndRemoveUntil('/', (_) => false);
-                }
-              } catch (e) {
-                if (mounted) {
-                  ScaffoldMessenger.of(
-                    context,
-                  ).showSnackBar(SnackBar(content: Text('Logout error: $e')));
+              Navigator.pop(dialogContext);
+              final success = await vm.logout();
+              if (context.mounted) {
+                if (success) {
+                  Navigator.of(context)
+                      .pushNamedAndRemoveUntil('/', (_) => false);
+                } else {
+                  _showMessage(context, vm.errorMessage ?? 'Logout failed');
                 }
               }
             },
@@ -86,10 +61,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  void _editProfile() {
+  void _editProfile(BuildContext context) {
+    final vm = context.read<ProfileViewModel>();
+
     showDialog(
       context: context,
-      builder: (BuildContext context) => AlertDialog(
+      builder: (dialogContext) => AlertDialog(
         title: const Text('Edit Profile'),
         content: Column(
           mainAxisSize: MainAxisSize.min,
@@ -97,7 +74,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             TextField(
               decoration: InputDecoration(
                 labelText: 'Name',
-                hintText: _user.name,
+                hintText: vm.user.name,
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(8),
                 ),
@@ -107,7 +84,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             TextField(
               decoration: InputDecoration(
                 labelText: 'Email',
-                hintText: _user.email,
+                hintText: vm.user.email,
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(8),
                 ),
@@ -117,7 +94,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             TextField(
               decoration: InputDecoration(
                 labelText: 'Phone',
-                hintText: _user.phone,
+                hintText: vm.user.phone,
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(8),
                 ),
@@ -127,15 +104,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () => Navigator.pop(dialogContext),
             child: const Text('Cancel'),
           ),
           TextButton(
             onPressed: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Profile updated successfully')),
-              );
-              Navigator.pop(context);
+              _showMessage(context, 'Profile updated successfully');
+              Navigator.pop(dialogContext);
             },
             child: const Text('Save'),
           ),
@@ -144,14 +119,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  void _editBudget() {
+  void _editBudget(BuildContext context) {
+    final vm = context.read<ProfileViewModel>();
     final budgetController = TextEditingController(
-      text: _monthlyBudget.toStringAsFixed(2),
+      text: vm.monthlyBudget.toStringAsFixed(2),
     );
 
     showDialog(
       context: context,
-      builder: (BuildContext context) => AlertDialog(
+      builder: (dialogContext) => AlertDialog(
         title: const Text('Edit Monthly Budget'),
         content: TextField(
           controller: budgetController,
@@ -164,25 +140,21 @@ class _ProfileScreenState extends State<ProfileScreen> {
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () => Navigator.pop(dialogContext),
             child: const Text('Cancel'),
           ),
           TextButton(
             onPressed: () {
-              final newBudget = double.tryParse(budgetController.text);
-              if (newBudget != null && newBudget > 0) {
-                setState(() => _monthlyBudget = newBudget);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Monthly budget updated successfully'),
-                  ),
-                );
-              } else {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Please enter a valid amount')),
+              final success = vm.updateBudget(budgetController.text);
+              if (context.mounted) {
+                _showMessage(
+                  context,
+                  success
+                      ? 'Monthly budget updated successfully'
+                      : 'Please enter a valid amount',
                 );
               }
-              Navigator.pop(context);
+              Navigator.pop(dialogContext);
             },
             child: const Text('Save'),
           ),
@@ -191,7 +163,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  void _showAboutDialog() {
+  void _showAboutDialog(BuildContext context) {
     showAboutDialog(
       context: context,
       applicationName: 'GastoWise',
@@ -210,6 +182,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final vm = context.watch<ProfileViewModel>();
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Profile'),
@@ -218,15 +192,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
       body: SingleChildScrollView(
         child: Column(
           children: [
-            _buildProfileHeader(context),
-            _buildSettingsSection(context),
+            _buildProfileHeader(context, vm),
+            _buildSettingsSection(context, vm),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildProfileHeader(BuildContext context) {
+  Widget _buildProfileHeader(BuildContext context, ProfileViewModel vm) {
     return Container(
       decoration: BoxDecoration(
         gradient: LinearGradient(
@@ -258,7 +232,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ),
           const SizedBox(height: 16),
           Text(
-            _user.name,
+            vm.user.name,
             style: Theme.of(context).textTheme.headlineSmall?.copyWith(
               color: Colors.white,
               fontWeight: FontWeight.bold,
@@ -266,17 +240,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ),
           const SizedBox(height: 8),
           Text(
-            _user.email,
-            style: Theme.of(
-              context,
-            ).textTheme.bodyMedium?.copyWith(color: Colors.white70),
+            vm.user.email,
+            style: Theme.of(context)
+                .textTheme
+                .bodyMedium
+                ?.copyWith(color: Colors.white70),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildSettingsSection(BuildContext context) {
+  Widget _buildSettingsSection(BuildContext context, ProfileViewModel vm) {
     return Padding(
       padding: const EdgeInsets.all(24.0),
       child: Column(
@@ -288,13 +263,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
             icon: Icons.person,
             title: 'Edit Profile',
             subtitle: 'Update your personal information',
-            onTap: _editProfile,
+            onTap: () => _editProfile(context),
           ),
           _buildSettingTile(
             icon: Icons.phone,
             title: 'Phone',
-            subtitle: _user.phone,
-            onTap: () {}, // Can implement later
+            subtitle: vm.user.phone,
+            onTap: () {},
           ),
           const SizedBox(height: 24),
           _buildSectionTitle(context, 'Budget Settings'),
@@ -302,8 +277,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
           _buildSettingTile(
             icon: Icons.attach_money,
             title: 'Monthly Budget',
-            subtitle: '\$${_monthlyBudget.toStringAsFixed(2)}',
-            onTap: _editBudget,
+            subtitle: '\$${vm.monthlyBudget.toStringAsFixed(2)}',
+            onTap: () => _editBudget(context),
           ),
           const SizedBox(height: 24),
           _buildSectionTitle(context, 'Preferences'),
@@ -311,18 +286,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
           _buildToggleTile(
             icon: Icons.notifications,
             title: 'Notifications',
-            value: _notificationsEnabled,
-            onChanged: (value) {
-              setState(() => _notificationsEnabled = value);
-            },
+            value: vm.notificationsEnabled,
+            onChanged: vm.setNotificationsEnabled,
           ),
           _buildToggleTile(
             icon: Icons.dark_mode,
             title: 'Dark Mode',
-            value: _darkModeEnabled,
-            onChanged: (value) {
-              setState(() => _darkModeEnabled = value);
-            },
+            value: vm.darkModeEnabled,
+            onChanged: vm.setDarkModeEnabled,
           ),
           const SizedBox(height: 24),
           _buildSectionTitle(context, 'About'),
@@ -331,13 +302,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
             icon: Icons.info,
             title: 'About GastoWise',
             subtitle: 'App version 1.0.0',
-            onTap: _showAboutDialog,
+            onTap: () => _showAboutDialog(context),
           ),
           const SizedBox(height: 24),
           SizedBox(
             width: double.infinity,
             child: ElevatedButton(
-              onPressed: _handleLogout,
+              onPressed: () => _handleLogout(context),
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.red,
                 padding: const EdgeInsets.symmetric(vertical: 14),
@@ -363,9 +334,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Widget _buildSectionTitle(BuildContext context, String title) {
     return Text(
       title,
-      style: Theme.of(
-        context,
-      ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+      style: Theme.of(context)
+          .textTheme
+          .titleMedium
+          ?.copyWith(fontWeight: FontWeight.bold),
     );
   }
 

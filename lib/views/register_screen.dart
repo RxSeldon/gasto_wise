@@ -1,37 +1,38 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
-import '../constants/app_constants.dart';
-import '../services/auth_service.dart';
+import '../utils/app_constants.dart';
 import '../services/service_locator.dart';
-import '../services/validation_service.dart';
+import '../viewmodels/register_viewmodel.dart';
 
-class RegisterScreen extends StatefulWidget {
+class RegisterScreen extends StatelessWidget {
   const RegisterScreen({super.key});
 
   @override
-  State<RegisterScreen> createState() => _RegisterScreenState();
+  Widget build(BuildContext context) {
+    return ChangeNotifierProvider(
+      create: (_) => RegisterViewModel(
+        authService: ServiceLocator().authService,
+        validationService: ServiceLocator().validationService,
+      ),
+      child: const _RegisterView(),
+    );
+  }
 }
 
-class _RegisterScreenState extends State<RegisterScreen> {
-  late final IValidationService _validationService;
-  late final IAuthService _authService;
+class _RegisterView extends StatefulWidget {
+  const _RegisterView();
 
+  @override
+  State<_RegisterView> createState() => _RegisterViewState();
+}
+
+class _RegisterViewState extends State<_RegisterView> {
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
-
-  bool _isPasswordVisible = false;
-  bool _isConfirmPasswordVisible = false;
-  bool _isLoading = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _validationService = ServiceLocator().validationService;
-    _authService = ServiceLocator().authService;
-  }
 
   @override
   void dispose() {
@@ -42,68 +43,41 @@ class _RegisterScreenState extends State<RegisterScreen> {
     super.dispose();
   }
 
-  String? _validateName(String? value) =>
-      _validationService.validateName(value?.trim() ?? '');
-
-  String? _validateEmail(String? value) =>
-      _validationService.validateEmail(value?.trim() ?? '');
-
-  String? _validatePassword(String? value) =>
-      _validationService.validatePassword(value ?? '');
-
-  String? _validateConfirmPassword(String? value) {
-    final passwordError = _validationService.validatePassword(value ?? '');
-    if (passwordError != null) return passwordError;
-    if (value != _passwordController.text) {
-      return 'Passwords do not match';
-    }
-    return null;
-  }
-
   Future<void> _handleRegister() async {
     if (!_formKey.currentState!.validate()) return;
 
-    setState(() => _isLoading = true);
+    final vm = context.read<RegisterViewModel>();
+    await vm.register(
+      name: _nameController.text,
+      email: _emailController.text,
+      password: _passwordController.text,
+    );
 
-    try {
-      final user = await _authService.signUp(
-        fullName: _nameController.text.trim(),
-        email: _emailController.text.trim(),
-        password: _passwordController.text,
-      );
+    if (!mounted) return;
 
-      if (!mounted) return;
-      if (user == null) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text('Registration failed')));
-        return;
-      }
-
-      final isLoggedIn = await _authService.isLoggedIn();
-      if (!mounted) return;
-      if (isLoggedIn) {
+    switch (vm.result) {
+      case RegisterResult.loggedIn:
         Navigator.of(context).pushNamedAndRemoveUntil('/home', (_) => false);
-      } else {
+      case RegisterResult.needsConfirmation:
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Check your email to confirm signup')),
+          const SnackBar(
+              content: Text('Check your email to confirm signup')),
         );
         Navigator.of(context).pushNamedAndRemoveUntil('/', (_) => false);
-      }
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Registration failed: $e')));
-    } finally {
-      if (mounted) {
-        setState(() => _isLoading = false);
-      }
+      case RegisterResult.failed:
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(vm.errorMessage ?? 'Registration failed')),
+        );
+      case RegisterResult.none:
+        break;
     }
+    vm.clearMessages();
   }
 
   @override
   Widget build(BuildContext context) {
+    final vm = context.watch<RegisterViewModel>();
+
     return Scaffold(
       body: SingleChildScrollView(
         child: Container(
@@ -118,7 +92,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
             ),
           ),
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 40),
+            padding:
+                const EdgeInsets.symmetric(horizontal: 24.0, vertical: 40),
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -149,7 +124,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       const SizedBox(height: 18),
                       Text(
                         AppConstants.appName,
-                        style: Theme.of(context).textTheme.headlineLarge
+                        style: Theme.of(context)
+                            .textTheme
+                            .headlineLarge
                             ?.copyWith(
                               color: Colors.white,
                               fontWeight: FontWeight.bold,
@@ -173,19 +150,23 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         children: [
                           Text(
                             'Create Account',
-                            style: Theme.of(context).textTheme.headlineSmall
+                            style: Theme.of(context)
+                                .textTheme
+                                .headlineSmall
                                 ?.copyWith(fontWeight: FontWeight.bold),
                           ),
                           const SizedBox(height: 8),
                           Text(
                             'Start tracking your expenses',
-                            style: Theme.of(context).textTheme.bodyMedium
+                            style: Theme.of(context)
+                                .textTheme
+                                .bodyMedium
                                 ?.copyWith(color: Colors.grey[600]),
                           ),
                           const SizedBox(height: 24),
                           TextFormField(
                             controller: _nameController,
-                            validator: _validateName,
+                            validator: vm.validateName,
                             textCapitalization: TextCapitalization.words,
                             decoration: _inputDecoration(
                               labelText: 'Full Name',
@@ -196,7 +177,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           const SizedBox(height: 16),
                           TextFormField(
                             controller: _emailController,
-                            validator: _validateEmail,
+                            validator: vm.validateEmail,
                             keyboardType: TextInputType.emailAddress,
                             decoration: _inputDecoration(
                               labelText: 'Email',
@@ -207,67 +188,64 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           const SizedBox(height: 16),
                           TextFormField(
                             controller: _passwordController,
-                            validator: _validatePassword,
-                            obscureText: !_isPasswordVisible,
+                            validator: vm.validatePassword,
+                            obscureText: !vm.isPasswordVisible,
                             decoration: _inputDecoration(
                               labelText: 'Password',
                               hintText: 'Create a password',
                               icon: Icons.lock_outline,
                               suffixIcon: IconButton(
                                 icon: Icon(
-                                  _isPasswordVisible
+                                  vm.isPasswordVisible
                                       ? Icons.visibility
                                       : Icons.visibility_off,
                                 ),
-                                onPressed: () {
-                                  setState(() {
-                                    _isPasswordVisible = !_isPasswordVisible;
-                                  });
-                                },
+                                onPressed: vm.togglePasswordVisibility,
                               ),
                             ),
                           ),
                           const SizedBox(height: 16),
                           TextFormField(
                             controller: _confirmPasswordController,
-                            validator: _validateConfirmPassword,
-                            obscureText: !_isConfirmPasswordVisible,
+                            validator: (value) =>
+                                vm.validateConfirmPassword(
+                                    value, _passwordController.text),
+                            obscureText: !vm.isConfirmPasswordVisible,
                             decoration: _inputDecoration(
                               labelText: 'Confirm Password',
                               hintText: 'Confirm your password',
                               icon: Icons.lock_reset,
                               suffixIcon: IconButton(
                                 icon: Icon(
-                                  _isConfirmPasswordVisible
+                                  vm.isConfirmPasswordVisible
                                       ? Icons.visibility
                                       : Icons.visibility_off,
                                 ),
-                                onPressed: () {
-                                  setState(() {
-                                    _isConfirmPasswordVisible =
-                                        !_isConfirmPasswordVisible;
-                                  });
-                                },
+                                onPressed:
+                                    vm.toggleConfirmPasswordVisibility,
                               ),
                             ),
                           ),
                           const SizedBox(height: 24),
                           ElevatedButton(
-                            onPressed: _isLoading ? null : _handleRegister,
+                            onPressed:
+                                vm.isLoading ? null : _handleRegister,
                             style: ElevatedButton.styleFrom(
                               backgroundColor: Colors.blue.shade800,
                               disabledBackgroundColor: Colors.grey[400],
-                              padding: const EdgeInsets.symmetric(vertical: 14),
+                              padding:
+                                  const EdgeInsets.symmetric(vertical: 14),
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(12),
                               ),
                             ),
-                            child: _isLoading
+                            child: vm.isLoading
                                 ? const SizedBox(
                                     height: 20,
                                     width: 20,
                                     child: CircularProgressIndicator(
-                                      valueColor: AlwaysStoppedAnimation<Color>(
+                                      valueColor:
+                                          AlwaysStoppedAnimation<Color>(
                                         Colors.white,
                                       ),
                                       strokeWidth: 2,
@@ -287,10 +265,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             children: [
                               Text(
                                 'Already have an account? ',
-                                style: Theme.of(context).textTheme.bodyMedium,
+                                style:
+                                    Theme.of(context).textTheme.bodyMedium,
                               ),
                               TextButton(
-                                onPressed: _isLoading
+                                onPressed: vm.isLoading
                                     ? null
                                     : () => Navigator.of(context).pop(),
                                 child: Text(

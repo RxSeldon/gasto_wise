@@ -1,59 +1,42 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
-import '../constants/app_constants.dart';
+import '../utils/app_constants.dart';
 import '../models/models.dart';
-import '../services/expense_service.dart';
 import '../services/service_locator.dart';
+import '../viewmodels/dashboard_viewmodel.dart';
 
-class DashboardScreen extends StatefulWidget {
+class DashboardScreen extends StatelessWidget {
   const DashboardScreen({super.key});
 
   @override
-  State<DashboardScreen> createState() => _DashboardScreenState();
+  Widget build(BuildContext context) {
+    return ChangeNotifierProvider(
+      create: (_) => DashboardViewModel(
+        expenseService: ServiceLocator().expenseService,
+        budgetService: ServiceLocator().budgetService,
+      )..loadDashboardData(),
+      child: const _DashboardView(),
+    );
+  }
 }
 
-class _DashboardScreenState extends State<DashboardScreen> {
-  late final IExpenseService _expenseService;
-  late final IBudgetService _budgetService;
-
-  double _totalBudget = 0;
-  double _totalExpenses = 0;
-  double _budgetPercentage = 0;
-  List<Expense> _recentExpenses = [];
-  bool _isLoading = true;
-
-  @override
-  void initState() {
-    super.initState();
-    _expenseService = ServiceLocator().expenseService;
-    _budgetService = ServiceLocator().budgetService;
-    _loadDashboardData();
-  }
-
-  Future<void> _loadDashboardData() async {
-    try {
-      final budgetInfo = await _budgetService.getBudgetInfo();
-      final recentExpenses = await _expenseService.getRecentExpenses();
-      if (!mounted) return;
-
-      setState(() {
-        _totalBudget = budgetInfo.totalBudget;
-        _totalExpenses = budgetInfo.totalExpenses;
-        _budgetPercentage = budgetInfo.usagePercentage;
-        _recentExpenses = recentExpenses;
-        _isLoading = false;
-      });
-    } catch (e) {
-      if (!mounted) return;
-      setState(() => _isLoading = false);
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Error loading dashboard: $e')));
-    }
-  }
+class _DashboardView extends StatelessWidget {
+  const _DashboardView();
 
   @override
   Widget build(BuildContext context) {
+    final vm = context.watch<DashboardViewModel>();
+
+    if (vm.errorMessage != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(vm.errorMessage!)),
+        );
+        vm.clearMessages();
+      });
+    }
+
     return Scaffold(
       appBar: AppBar(
         title: const Text(AppConstants.appName),
@@ -81,25 +64,25 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ),
         ],
       ),
-      body: _isLoading
+      body: vm.isLoading
           ? const Center(child: CircularProgressIndicator())
           : RefreshIndicator(
-              onRefresh: _loadDashboardData,
+              onRefresh: vm.loadDashboardData,
               child: SingleChildScrollView(
                 physics: const AlwaysScrollableScrollPhysics(),
                 child: Column(
                   children: [
-                    _buildGradientHeader(context),
+                    _buildGradientHeader(context, vm),
                     Padding(
                       padding: const EdgeInsets.all(24.0),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          _buildBudgetProgressSection(context),
+                          _buildBudgetProgressSection(context, vm),
                           const SizedBox(height: 28),
                           _buildQuickActionsSection(context),
                           const SizedBox(height: 28),
-                          _buildRecentExpensesSection(context),
+                          _buildRecentExpensesSection(context, vm),
                         ],
                       ),
                     ),
@@ -110,9 +93,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  Widget _buildGradientHeader(BuildContext context) {
-    final remainingBudget = _totalBudget - _totalExpenses;
-
+  Widget _buildGradientHeader(BuildContext context, DashboardViewModel vm) {
     return Container(
       decoration: BoxDecoration(
         gradient: LinearGradient(
@@ -139,7 +120,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 Expanded(
                   child: _SummaryCard(
                     title: 'Total Budget',
-                    amount: '\$${_totalBudget.toStringAsFixed(2)}',
+                    amount: '\$${vm.totalBudget.toStringAsFixed(2)}',
                     icon: Icons.account_balance_wallet,
                     backgroundColor: Colors.white.withValues(alpha: 0.2),
                   ),
@@ -148,7 +129,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 Expanded(
                   child: _SummaryCard(
                     title: 'Total Spent',
-                    amount: '\$${_totalExpenses.toStringAsFixed(2)}',
+                    amount: '\$${vm.totalExpenses.toStringAsFixed(2)}',
                     icon: Icons.payments,
                     backgroundColor: Colors.red.withValues(alpha: 0.2),
                   ),
@@ -158,7 +139,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             const SizedBox(height: 12),
             _SummaryCard(
               title: 'Remaining Budget',
-              amount: '\$${remainingBudget.toStringAsFixed(2)}',
+              amount: '\$${vm.remainingBudget.toStringAsFixed(2)}',
               icon: Icons.savings,
               backgroundColor: Colors.green.withValues(alpha: 0.2),
             ),
@@ -168,7 +149,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  Widget _buildBudgetProgressSection(BuildContext context) {
+  Widget _buildBudgetProgressSection(
+      BuildContext context, DashboardViewModel vm) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -177,12 +159,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
           children: [
             Text(
               'Budget Usage',
-              style: Theme.of(
-                context,
-              ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+              style: Theme.of(context)
+                  .textTheme
+                  .titleLarge
+                  ?.copyWith(fontWeight: FontWeight.bold),
             ),
             Text(
-              '${_budgetPercentage.toStringAsFixed(1)}%',
+              '${vm.budgetPercentage.toStringAsFixed(1)}%',
               style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                 color: Colors.blue.shade800,
                 fontWeight: FontWeight.bold,
@@ -194,24 +177,25 @@ class _DashboardScreenState extends State<DashboardScreen> {
         ClipRRect(
           borderRadius: BorderRadius.circular(10),
           child: LinearProgressIndicator(
-            value: _budgetPercentage / 100,
+            value: vm.budgetPercentage / 100,
             minHeight: 10,
             backgroundColor: Colors.grey.shade200,
             valueColor: AlwaysStoppedAnimation<Color>(
-              _budgetPercentage > 80
+              vm.budgetPercentage > 80
                   ? Colors.red
-                  : _budgetPercentage > 60
-                  ? Colors.orange
-                  : Colors.green,
+                  : vm.budgetPercentage > 60
+                      ? Colors.orange
+                      : Colors.green,
             ),
           ),
         ),
         const SizedBox(height: 12),
         Text(
-          'You have spent \$${_totalExpenses.toStringAsFixed(2)} out of \$${_totalBudget.toStringAsFixed(2)}',
-          style: Theme.of(
-            context,
-          ).textTheme.bodySmall?.copyWith(color: Colors.grey[600]),
+          'You have spent \$${vm.totalExpenses.toStringAsFixed(2)} out of \$${vm.totalBudget.toStringAsFixed(2)}',
+          style: Theme.of(context)
+              .textTheme
+              .bodySmall
+              ?.copyWith(color: Colors.grey[600]),
         ),
       ],
     );
@@ -223,9 +207,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
       children: [
         Text(
           'Quick Actions',
-          style: Theme.of(
-            context,
-          ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+          style: Theme.of(context)
+              .textTheme
+              .titleLarge
+              ?.copyWith(fontWeight: FontWeight.bold),
         ),
         const SizedBox(height: 16),
         Row(
@@ -264,7 +249,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 icon: Icons.category_outlined,
                 label: 'Categories',
                 onPressed: () => ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Categories feature coming soon')),
+                  const SnackBar(
+                      content: Text('Categories feature coming soon')),
                 ),
               ),
             ),
@@ -274,7 +260,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 icon: Icons.trending_up,
                 label: 'Analytics',
                 onPressed: () => ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Analytics feature coming soon')),
+                  const SnackBar(
+                      content: Text('Analytics feature coming soon')),
                 ),
               ),
             ),
@@ -284,7 +271,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  Widget _buildRecentExpensesSection(BuildContext context) {
+  Widget _buildRecentExpensesSection(
+      BuildContext context, DashboardViewModel vm) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -293,9 +281,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
           children: [
             Text(
               'Recent Expenses',
-              style: Theme.of(
-                context,
-              ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+              style: Theme.of(context)
+                  .textTheme
+                  .titleLarge
+                  ?.copyWith(fontWeight: FontWeight.bold),
             ),
             TextButton(
               onPressed: () => ScaffoldMessenger.of(context).showSnackBar(
@@ -312,7 +301,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ],
         ),
         const SizedBox(height: 12),
-        _recentExpenses.isEmpty
+        vm.recentExpenses.isEmpty
             ? Container(
                 padding: const EdgeInsets.all(24),
                 alignment: Alignment.center,
@@ -324,9 +313,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
             : ListView.builder(
                 shrinkWrap: true,
                 physics: const NeverScrollableScrollPhysics(),
-                itemCount: _recentExpenses.length,
+                itemCount: vm.recentExpenses.length,
                 itemBuilder: (context, index) =>
-                    _ExpenseItemCard(expense: _recentExpenses[index]),
+                    _ExpenseItemCard(expense: vm.recentExpenses[index]),
               ),
       ],
     );
@@ -475,15 +464,17 @@ class _ExpenseItemCard extends StatelessWidget {
               children: [
                 Text(
                   expense.category,
-                  style: Theme.of(
-                    context,
-                  ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.bold),
+                  style: Theme.of(context)
+                      .textTheme
+                      .bodyMedium
+                      ?.copyWith(fontWeight: FontWeight.bold),
                 ),
                 Text(
                   _getRelativeDate(expense.date),
-                  style: Theme.of(
-                    context,
-                  ).textTheme.bodySmall?.copyWith(color: Colors.grey[600]),
+                  style: Theme.of(context)
+                      .textTheme
+                      .bodySmall
+                      ?.copyWith(color: Colors.grey[600]),
                 ),
               ],
             ),

@@ -1,4 +1,4 @@
-import '../constants/app_constants.dart';
+import '../utils/app_constants.dart';
 
 // Validation service - Single Responsibility: handles all validation logic
 abstract class IValidationService {

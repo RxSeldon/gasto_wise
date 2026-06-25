@@ -20,7 +20,9 @@ class Expense {
     return Expense(
       id: json['id'].toString(),
       category: json['category'] as String,
-      amount: amount is num ? amount.toDouble() : double.parse(amount.toString()),
+      amount: amount is num
+          ? amount.toDouble()
+          : double.parse(amount.toString()),
       date: DateTime.parse(date.toString()),
       description: json['description'] as String? ?? '',
     );

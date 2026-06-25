@@ -1,34 +1,36 @@
 import 'package:flutter/material.dart';
-import 'package:supabase_flutter/supabase_flutter.dart' as supabase;
+import 'package:provider/provider.dart';
 
-import '../constants/app_constants.dart';
-import '../services/auth_service.dart';
+import '../utils/app_constants.dart';
 import '../services/service_locator.dart';
-import '../services/validation_service.dart';
+import '../viewmodels/login_viewmodel.dart';
 
-class LoginScreen extends StatefulWidget {
+class LoginScreen extends StatelessWidget {
   const LoginScreen({super.key});
 
   @override
-  State<LoginScreen> createState() => _LoginScreenState();
+  Widget build(BuildContext context) {
+    return ChangeNotifierProvider(
+      create: (_) => LoginViewModel(
+        authService: ServiceLocator().authService,
+        validationService: ServiceLocator().validationService,
+      ),
+      child: const _LoginView(),
+    );
+  }
 }
 
-class _LoginScreenState extends State<LoginScreen> {
-  late final IValidationService _validationService;
-  late final IAuthService _authService;
+class _LoginView extends StatefulWidget {
+  const _LoginView();
 
+  @override
+  State<_LoginView> createState() => _LoginViewState();
+}
+
+class _LoginViewState extends State<_LoginView> {
   final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
-  bool _isPasswordVisible = false;
-  bool _isLoading = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _validationService = ServiceLocator().validationService;
-    _authService = ServiceLocator().authService;
-  }
 
   @override
   void dispose() {
@@ -37,78 +39,31 @@ class _LoginScreenState extends State<LoginScreen> {
     super.dispose();
   }
 
-  String? _validateEmailField(String? value) =>
-      _validationService.validateEmail(value ?? '');
-
-  String? _validatePasswordField(String? value) =>
-      _validationService.validatePassword(value ?? '');
-
   Future<void> _handleLogin() async {
     if (!_formKey.currentState!.validate()) return;
 
-    setState(() => _isLoading = true);
-
-    try {
-      final user = await _authService.login(
-        _emailController.text.trim(),
-        _passwordController.text,
-      );
-
-      if (!mounted) return;
-      if (user == null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Login failed: no user returned')),
-        );
-        return;
-      }
-      Navigator.of(context).pushReplacementNamed('/home');
-    } catch (e) {
-      if (!mounted) return;
-      await _handleLoginError(e);
-    } finally {
-      if (mounted) {
-        setState(() => _isLoading = false);
-      }
-    }
-  }
-
-  Future<void> _handleLoginError(Object error) async {
-    if (_isEmailNotConfirmed(error)) {
-      final email = _emailController.text.trim();
-      try {
-        await _authService.resendSignUpConfirmation(email);
-      } catch (_) {
-        // The original problem is still the important one to show.
-      }
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please confirm your email before signing in.'),
-        ),
-      );
-      return;
-    }
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Login failed: ${_readableAuthError(error)}')),
+    final vm = context.read<LoginViewModel>();
+    await vm.login(
+      _emailController.text,
+      _passwordController.text,
     );
-  }
 
-  bool _isEmailNotConfirmed(Object error) {
-    return error is supabase.AuthException &&
-        (error.code == 'email_not_confirmed' ||
-            error.message.toLowerCase().contains('email not confirmed'));
-  }
+    if (!mounted) return;
 
-  String _readableAuthError(Object error) {
-    if (error is supabase.AuthException) {
-      return error.message;
+    if (vm.loginSuccess) {
+      Navigator.of(context).pushReplacementNamed('/home');
+    } else if (vm.errorMessage != null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(vm.errorMessage!)),
+      );
     }
-    return error.toString();
+    vm.clearMessages();
   }
 
   @override
   Widget build(BuildContext context) {
+    final vm = context.watch<LoginViewModel>();
+
     return Scaffold(
       body: SingleChildScrollView(
         child: Container(
@@ -152,7 +107,9 @@ class _LoginScreenState extends State<LoginScreen> {
                       const SizedBox(height: 20),
                       Text(
                         AppConstants.appName,
-                        style: Theme.of(context).textTheme.headlineLarge
+                        style: Theme.of(context)
+                            .textTheme
+                            .headlineLarge
                             ?.copyWith(
                               color: Colors.white,
                               fontWeight: FontWeight.bold,
@@ -161,7 +118,8 @@ class _LoginScreenState extends State<LoginScreen> {
                       const SizedBox(height: 8),
                       Text(
                         AppConstants.appDescription,
-                        style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                        style:
+                            Theme.of(context).textTheme.bodyLarge?.copyWith(
                           color: Colors.white.withValues(alpha: 0.9),
                         ),
                       ),
@@ -183,19 +141,23 @@ class _LoginScreenState extends State<LoginScreen> {
                         children: [
                           Text(
                             'Welcome Back',
-                            style: Theme.of(context).textTheme.headlineSmall
+                            style: Theme.of(context)
+                                .textTheme
+                                .headlineSmall
                                 ?.copyWith(fontWeight: FontWeight.bold),
                           ),
                           const SizedBox(height: 8),
                           Text(
                             'Sign in to your account',
-                            style: Theme.of(context).textTheme.bodyMedium
+                            style: Theme.of(context)
+                                .textTheme
+                                .bodyMedium
                                 ?.copyWith(color: Colors.grey[600]),
                           ),
                           const SizedBox(height: 24),
                           TextFormField(
                             controller: _emailController,
-                            validator: _validateEmailField,
+                            validator: vm.validateEmail,
                             decoration: InputDecoration(
                               labelText: 'Email',
                               hintText: 'Enter your email',
@@ -218,23 +180,19 @@ class _LoginScreenState extends State<LoginScreen> {
                           const SizedBox(height: 16),
                           TextFormField(
                             controller: _passwordController,
-                            validator: _validatePasswordField,
-                            obscureText: !_isPasswordVisible,
+                            validator: vm.validatePassword,
+                            obscureText: !vm.isPasswordVisible,
                             decoration: InputDecoration(
                               labelText: 'Password',
                               hintText: 'Enter your password',
                               prefixIcon: const Icon(Icons.lock_outline),
                               suffixIcon: IconButton(
                                 icon: Icon(
-                                  _isPasswordVisible
+                                  vm.isPasswordVisible
                                       ? Icons.visibility
                                       : Icons.visibility_off,
                                 ),
-                                onPressed: () {
-                                  setState(() {
-                                    _isPasswordVisible = !_isPasswordVisible;
-                                  });
-                                },
+                                onPressed: vm.togglePasswordVisibility,
                               ),
                               border: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(12),
@@ -274,21 +232,24 @@ class _LoginScreenState extends State<LoginScreen> {
                           ),
                           const SizedBox(height: 24),
                           ElevatedButton(
-                            onPressed: _isLoading ? null : _handleLogin,
+                            onPressed:
+                                vm.isLoading ? null : _handleLogin,
                             style: ElevatedButton.styleFrom(
                               backgroundColor: Colors.blue.shade800,
                               disabledBackgroundColor: Colors.grey[400],
-                              padding: const EdgeInsets.symmetric(vertical: 14),
+                              padding:
+                                  const EdgeInsets.symmetric(vertical: 14),
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(12),
                               ),
                             ),
-                            child: _isLoading
+                            child: vm.isLoading
                                 ? const SizedBox(
                                     height: 20,
                                     width: 20,
                                     child: CircularProgressIndicator(
-                                      valueColor: AlwaysStoppedAnimation<Color>(
+                                      valueColor:
+                                          AlwaysStoppedAnimation<Color>(
                                         Colors.white,
                                       ),
                                       strokeWidth: 2,
@@ -296,7 +257,9 @@ class _LoginScreenState extends State<LoginScreen> {
                                   )
                                 : Text(
                                     'Sign In',
-                                    style: Theme.of(context).textTheme.bodyLarge
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .bodyLarge
                                         ?.copyWith(
                                           color: Colors.white,
                                           fontWeight: FontWeight.bold,
@@ -335,15 +298,15 @@ class _LoginScreenState extends State<LoginScreen> {
                             children: [
                               Text(
                                 "Don't have an account? ",
-                                style: Theme.of(context).textTheme.bodyMedium,
+                                style:
+                                    Theme.of(context).textTheme.bodyMedium,
                               ),
                               TextButton(
-                                onPressed: _isLoading
+                                onPressed: vm.isLoading
                                     ? null
                                     : () {
-                                        Navigator.of(
-                                          context,
-                                        ).pushNamed('/register');
+                                        Navigator.of(context)
+                                            .pushNamed('/register');
                                       },
                                 child: Text(
                                   'Sign Up',

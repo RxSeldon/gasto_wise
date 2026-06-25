@@ -1,37 +1,36 @@
 import 'package:flutter/material.dart';
-import 'package:uuid/uuid.dart';
+import 'package:provider/provider.dart';
 
-import '../constants/app_constants.dart';
-import '../models/models.dart';
-import '../services/expense_service.dart';
+import '../utils/app_constants.dart';
 import '../services/service_locator.dart';
-import '../services/validation_service.dart';
+import '../viewmodels/add_expense_viewmodel.dart';
 
-class AddExpenseScreen extends StatefulWidget {
+class AddExpenseScreen extends StatelessWidget {
   const AddExpenseScreen({super.key});
 
   @override
-  State<AddExpenseScreen> createState() => _AddExpenseScreenState();
+  Widget build(BuildContext context) {
+    return ChangeNotifierProvider(
+      create: (_) => AddExpenseViewModel(
+        expenseService: ServiceLocator().expenseService,
+        validationService: ServiceLocator().validationService,
+      ),
+      child: const _AddExpenseView(),
+    );
+  }
 }
 
-class _AddExpenseScreenState extends State<AddExpenseScreen> {
-  late final IExpenseService _expenseService;
-  late final IValidationService _validationService;
+class _AddExpenseView extends StatefulWidget {
+  const _AddExpenseView();
 
+  @override
+  State<_AddExpenseView> createState() => _AddExpenseViewState();
+}
+
+class _AddExpenseViewState extends State<_AddExpenseView> {
   final _formKey = GlobalKey<FormState>();
   final _amountController = TextEditingController();
   final _descriptionController = TextEditingController();
-
-  String _selectedCategory = AppConstants.categories.first;
-  DateTime _selectedDate = DateTime.now();
-  bool _isLoading = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _expenseService = ServiceLocator().expenseService;
-    _validationService = ServiceLocator().validationService;
-  }
 
   @override
   void dispose() {
@@ -40,67 +39,59 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
     super.dispose();
   }
 
-  String? _validateAmount(String? value) =>
-      _validationService.validateAmount(value ?? '');
+  void _showMessage(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message)),
+    );
+  }
 
   Future<void> _selectDate(BuildContext context) async {
+    final vm = context.read<AddExpenseViewModel>();
     final picked = await showDatePicker(
       context: context,
-      initialDate: _selectedDate,
+      initialDate: vm.selectedDate,
       firstDate: DateTime(2020),
       lastDate: DateTime.now(),
     );
-
-    if (picked != null && mounted) {
-      setState(() => _selectedDate = picked);
+    if (picked != null) {
+      vm.setDate(picked);
     }
   }
 
-  Future<void> _handleSaveExpense() async {
+  Future<void> _handleSave() async {
     if (!_formKey.currentState!.validate()) return;
 
-    setState(() => _isLoading = true);
+    final vm = context.read<AddExpenseViewModel>();
+    final success = await vm.saveExpense(
+      amount: _amountController.text,
+      description: _descriptionController.text,
+    );
 
-    try {
-      final newExpense = Expense(
-        id: const Uuid().v4(),
-        category: _selectedCategory,
-        amount: double.parse(_amountController.text),
-        date: _selectedDate,
-        description: _descriptionController.text.trim(),
-      );
+    if (!mounted) return;
 
-      await _expenseService.addExpense(newExpense);
-
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Expense added successfully')),
-      );
-      _clearForm();
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Error: $e')));
-    } finally {
-      if (mounted) {
-        setState(() => _isLoading = false);
-      }
+    if (success) {
+      _showMessage(vm.successMessage!);
+      _formKey.currentState?.reset();
+      _amountController.clear();
+      _descriptionController.clear();
+      vm.resetForm();
+    } else if (vm.errorMessage != null) {
+      _showMessage(vm.errorMessage!);
     }
+    vm.clearMessages();
   }
 
   void _clearForm() {
     _formKey.currentState?.reset();
     _amountController.clear();
     _descriptionController.clear();
-    setState(() {
-      _selectedCategory = AppConstants.categories.first;
-      _selectedDate = DateTime.now();
-    });
+    context.read<AddExpenseViewModel>().resetForm();
   }
 
   @override
   Widget build(BuildContext context) {
+    final vm = context.watch<AddExpenseViewModel>();
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Add Expense'),
@@ -115,15 +106,15 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
             children: [
               _buildSectionTitle('Expense Details'),
               const SizedBox(height: 20),
-              _buildCategoryDropdown(),
+              _buildCategoryDropdown(vm),
               const SizedBox(height: 16),
-              _buildAmountField(),
+              _buildAmountField(vm),
               const SizedBox(height: 16),
-              _buildDatePicker(context),
+              _buildDatePicker(context, vm),
               const SizedBox(height: 16),
               _buildDescriptionField(),
               const SizedBox(height: 32),
-              _buildActionButtons(),
+              _buildActionButtons(vm),
             ],
           ),
         ),
@@ -134,25 +125,27 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
   Widget _buildSectionTitle(String title) {
     return Text(
       title,
-      style: Theme.of(
-        context,
-      ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+      style: Theme.of(context)
+          .textTheme
+          .titleLarge
+          ?.copyWith(fontWeight: FontWeight.bold),
     );
   }
 
-  Widget _buildCategoryDropdown() {
+  Widget _buildCategoryDropdown(AddExpenseViewModel vm) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
           'Category',
-          style: Theme.of(
-            context,
-          ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
+          style: Theme.of(context)
+              .textTheme
+              .bodyMedium
+              ?.copyWith(fontWeight: FontWeight.w600),
         ),
         const SizedBox(height: 8),
         DropdownButtonFormField<String>(
-          initialValue: _selectedCategory,
+          initialValue: vm.selectedCategory,
           items: AppConstants.categories
               .map(
                 (category) => DropdownMenuItem(
@@ -172,9 +165,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
               )
               .toList(),
           onChanged: (value) {
-            if (value != null) {
-              setState(() => _selectedCategory = value);
-            }
+            if (value != null) vm.setCategory(value);
           },
           decoration: InputDecoration(
             border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
@@ -186,10 +177,10 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
     );
   }
 
-  Widget _buildAmountField() {
+  Widget _buildAmountField(AddExpenseViewModel vm) {
     return TextFormField(
       controller: _amountController,
-      validator: _validateAmount,
+      validator: vm.validateAmount,
       keyboardType: const TextInputType.numberWithOptions(decimal: true),
       decoration: InputDecoration(
         labelText: 'Amount',
@@ -206,15 +197,16 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
     );
   }
 
-  Widget _buildDatePicker(BuildContext context) {
+  Widget _buildDatePicker(BuildContext context, AddExpenseViewModel vm) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
           'Date',
-          style: Theme.of(
-            context,
-          ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
+          style: Theme.of(context)
+              .textTheme
+              .bodyMedium
+              ?.copyWith(fontWeight: FontWeight.w600),
         ),
         const SizedBox(height: 8),
         InkWell(
@@ -231,7 +223,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text(
-                  '${_selectedDate.month}/${_selectedDate.day}/${_selectedDate.year}',
+                  '${vm.selectedDate.month}/${vm.selectedDate.day}/${vm.selectedDate.year}',
                   style: Theme.of(context).textTheme.bodyMedium,
                 ),
                 Icon(Icons.calendar_today, color: Colors.blue.shade800),
@@ -261,12 +253,12 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
     );
   }
 
-  Widget _buildActionButtons() {
+  Widget _buildActionButtons(AddExpenseViewModel vm) {
     return Row(
       children: [
         Expanded(
           child: OutlinedButton(
-            onPressed: _isLoading ? null : _clearForm,
+            onPressed: vm.isLoading ? null : _clearForm,
             style: OutlinedButton.styleFrom(
               padding: const EdgeInsets.symmetric(vertical: 14),
               side: BorderSide(color: Colors.blue.shade800),
@@ -286,7 +278,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
         const SizedBox(width: 12),
         Expanded(
           child: ElevatedButton(
-            onPressed: _isLoading ? null : _handleSaveExpense,
+            onPressed: vm.isLoading ? null : _handleSave,
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.blue.shade800,
               disabledBackgroundColor: Colors.grey[400],
@@ -295,7 +287,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                 borderRadius: BorderRadius.circular(12),
               ),
             ),
-            child: _isLoading
+            child: vm.isLoading
                 ? const SizedBox(
                     height: 20,
                     width: 20,

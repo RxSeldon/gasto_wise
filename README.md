@@ -4,11 +4,10 @@ A new Flutter project.
 
 ## Supabase config
 
-Do not commit your real Supabase keys. Copy `supabase_config.example.json` to
-`supabase_config.json`, fill in your local values, then run:
+Do not commit your real Supabase keys. Put your local values in `.env`, then run:
 
 ```bash
-flutter run -d chrome --dart-define-from-file=supabase_config.json
+flutter run -d chrome --dart-define-from-file=.env
 ```
 
 ## Getting Started

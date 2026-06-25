@@ -1,90 +1,27 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
-import '../constants/app_constants.dart';
+import '../utils/app_constants.dart';
 import '../models/models.dart';
-import '../services/expense_service.dart';
 import '../services/service_locator.dart';
+import '../viewmodels/expense_history_viewmodel.dart';
 
-class ExpenseHistoryScreen extends StatefulWidget {
+class ExpenseHistoryScreen extends StatelessWidget {
   const ExpenseHistoryScreen({super.key});
 
   @override
-  State<ExpenseHistoryScreen> createState() => _ExpenseHistoryScreenState();
+  Widget build(BuildContext context) {
+    return ChangeNotifierProvider(
+      create: (_) => ExpenseHistoryViewModel(
+        expenseService: ServiceLocator().expenseService,
+      )..loadExpenses(),
+      child: const _ExpenseHistoryView(),
+    );
+  }
 }
 
-class _ExpenseHistoryScreenState extends State<ExpenseHistoryScreen> {
-  late final IExpenseService _expenseService;
-
-  String _selectedFilter = 'All';
-  List<Expense> _allExpenses = [];
-  List<Expense> _filteredExpenses = [];
-  bool _isLoading = true;
-
-  @override
-  void initState() {
-    super.initState();
-    _expenseService = ServiceLocator().expenseService;
-    _loadExpenses();
-  }
-
-  Future<void> _loadExpenses() async {
-    try {
-      final expenses = await _expenseService.getAllExpenses();
-      if (!mounted) return;
-      setState(() {
-        _allExpenses = expenses;
-        _filterExpenses();
-        _isLoading = false;
-      });
-    } catch (e) {
-      if (!mounted) return;
-      setState(() => _isLoading = false);
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Error loading expenses: $e')));
-    }
-  }
-
-  void _filterExpenses() {
-    if (_selectedFilter == 'All') {
-      _filteredExpenses = List.from(_allExpenses);
-    } else {
-      _filteredExpenses = _allExpenses
-          .where((expense) => expense.category == _selectedFilter)
-          .toList();
-    }
-    _filteredExpenses.sort((a, b) => b.date.compareTo(a.date));
-  }
-
-  Future<void> _deleteExpense(String expenseId) async {
-    try {
-      await _expenseService.deleteExpense(expenseId);
-      if (!mounted) return;
-      setState(() {
-        _allExpenses.removeWhere((expense) => expense.id == expenseId);
-        _filterExpenses();
-      });
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Expense deleted successfully')),
-      );
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Error deleting expense: $e')));
-    }
-  }
-
-  void _onFilterChanged(String category) {
-    setState(() {
-      _selectedFilter = category;
-      _filterExpenses();
-    });
-  }
-
-  double _calculateTotal() {
-    return _filteredExpenses.fold(0, (sum, expense) => sum + expense.amount);
-  }
+class _ExpenseHistoryView extends StatelessWidget {
+  const _ExpenseHistoryView();
 
   String _getRelativeDate(DateTime date) {
     final now = DateTime.now();
@@ -98,24 +35,46 @@ class _ExpenseHistoryScreenState extends State<ExpenseHistoryScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final vm = context.watch<ExpenseHistoryViewModel>();
+
+    if (vm.errorMessage != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(vm.errorMessage!)),
+        );
+        vm.clearMessages();
+      });
+    }
+
+    if (vm.successMessage != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(vm.successMessage!)),
+        );
+        vm.clearMessages();
+      });
+    }
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Expense History'),
         backgroundColor: Colors.blue.shade800,
       ),
-      body: _isLoading
+      body: vm.isLoading
           ? const Center(child: CircularProgressIndicator())
           : Column(
               children: [
-                _buildFilterSection(context),
-                Expanded(child: _buildExpenseList(context)),
-                if (_filteredExpenses.isNotEmpty) _buildTotalSection(context),
+                _buildFilterSection(context, vm),
+                Expanded(child: _buildExpenseList(context, vm)),
+                if (vm.filteredExpenses.isNotEmpty)
+                  _buildTotalSection(context, vm),
               ],
             ),
     );
   }
 
-  Widget _buildFilterSection(BuildContext context) {
+  Widget _buildFilterSection(
+      BuildContext context, ExpenseHistoryViewModel vm) {
     final categories = ['All', ...AppConstants.categories];
 
     return SingleChildScrollView(
@@ -127,12 +86,12 @@ class _ExpenseHistoryScreenState extends State<ExpenseHistoryScreen> {
               (category) => Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 4.0),
                 child: FilterChip(
-                  selected: _selectedFilter == category,
+                  selected: vm.selectedFilter == category,
                   label: Text(category),
-                  onSelected: (_) => _onFilterChanged(category),
+                  onSelected: (_) => vm.setFilter(category),
                   selectedColor: Colors.blue.shade800,
                   labelStyle: TextStyle(
-                    color: _selectedFilter == category
+                    color: vm.selectedFilter == category
                         ? Colors.white
                         : Colors.black,
                   ),
@@ -144,8 +103,9 @@ class _ExpenseHistoryScreenState extends State<ExpenseHistoryScreen> {
     );
   }
 
-  Widget _buildExpenseList(BuildContext context) {
-    if (_filteredExpenses.isEmpty) {
+  Widget _buildExpenseList(
+      BuildContext context, ExpenseHistoryViewModel vm) {
+    if (vm.filteredExpenses.isEmpty) {
       return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -154,15 +114,17 @@ class _ExpenseHistoryScreenState extends State<ExpenseHistoryScreen> {
             const SizedBox(height: 16),
             Text(
               'No expenses found',
-              style: Theme.of(
-                context,
-              ).textTheme.titleMedium?.copyWith(color: Colors.grey[600]),
+              style: Theme.of(context)
+                  .textTheme
+                  .titleMedium
+                  ?.copyWith(color: Colors.grey[600]),
             ),
             Text(
               'Start adding expenses to see them here',
-              style: Theme.of(
-                context,
-              ).textTheme.bodySmall?.copyWith(color: Colors.grey[500]),
+              style: Theme.of(context)
+                  .textTheme
+                  .bodySmall
+                  ?.copyWith(color: Colors.grey[500]),
             ),
           ],
         ),
@@ -170,23 +132,24 @@ class _ExpenseHistoryScreenState extends State<ExpenseHistoryScreen> {
     }
 
     return RefreshIndicator(
-      onRefresh: _loadExpenses,
+      onRefresh: vm.loadExpenses,
       child: ListView.builder(
         padding: const EdgeInsets.all(12.0),
-        itemCount: _filteredExpenses.length,
+        itemCount: vm.filteredExpenses.length,
         itemBuilder: (context, index) =>
-            _buildExpenseCard(context, _filteredExpenses[index]),
+            _buildExpenseCard(context, vm, vm.filteredExpenses[index]),
       ),
     );
   }
 
-  Widget _buildExpenseCard(BuildContext context, Expense expense) {
+  Widget _buildExpenseCard(
+      BuildContext context, ExpenseHistoryViewModel vm, Expense expense) {
     final icon = AppConstants.categoryIcons[expense.category] ?? Icons.category;
 
     return Dismissible(
       key: Key(expense.id),
       direction: DismissDirection.endToStart,
-      onDismissed: (_) => _deleteExpense(expense.id),
+      onDismissed: (_) => vm.deleteExpense(expense.id),
       background: Container(
         alignment: Alignment.centerRight,
         padding: const EdgeInsets.only(right: 20.0),
@@ -234,9 +197,10 @@ class _ExpenseHistoryScreenState extends State<ExpenseHistoryScreen> {
                     expense.description.isEmpty
                         ? _getRelativeDate(expense.date)
                         : expense.description,
-                    style: Theme.of(
-                      context,
-                    ).textTheme.bodySmall?.copyWith(color: Colors.grey[600]),
+                    style: Theme.of(context)
+                        .textTheme
+                        .bodySmall
+                        ?.copyWith(color: Colors.grey[600]),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -263,9 +227,8 @@ class _ExpenseHistoryScreenState extends State<ExpenseHistoryScreen> {
     );
   }
 
-  Widget _buildTotalSection(BuildContext context) {
-    final total = _calculateTotal();
-
+  Widget _buildTotalSection(
+      BuildContext context, ExpenseHistoryViewModel vm) {
     return Container(
       padding: const EdgeInsets.all(16.0),
       decoration: BoxDecoration(
@@ -277,12 +240,13 @@ class _ExpenseHistoryScreenState extends State<ExpenseHistoryScreen> {
         children: [
           Text(
             'Total',
-            style: Theme.of(
-              context,
-            ).textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.w600),
+            style: Theme.of(context)
+                .textTheme
+                .bodyLarge
+                ?.copyWith(fontWeight: FontWeight.w600),
           ),
           Text(
-            '-\$${total.toStringAsFixed(2)}',
+            '-\$${vm.filteredTotal.toStringAsFixed(2)}',
             style: Theme.of(context).textTheme.bodyLarge?.copyWith(
               color: Colors.red,
               fontWeight: FontWeight.bold,
