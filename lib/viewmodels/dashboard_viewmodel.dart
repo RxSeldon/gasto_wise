@@ -53,4 +53,19 @@ class DashboardViewModel extends ChangeNotifier {
       notifyListeners();
     }
   }
+
+  Future<bool> updateBudget(String budgetText) async {
+    final newBudget = double.tryParse(budgetText);
+    if (newBudget == null || newBudget < 0) return false;
+
+    try {
+      await _budgetService.setMonthlyBudget(newBudget);
+      await loadDashboardData();
+      return true;
+    } catch (e) {
+      _errorMessage = 'Error updating budget: $e';
+      notifyListeners();
+      return false;
+    }
+  }
 }

@@ -24,6 +24,50 @@ class DashboardScreen extends StatelessWidget {
 class _DashboardView extends StatelessWidget {
   const _DashboardView();
 
+  void _showEditBudgetDialog(BuildContext context, DashboardViewModel vm) {
+    final controller = TextEditingController(
+      text: vm.totalBudget > 0 ? vm.totalBudget.toStringAsFixed(2) : '',
+    );
+
+    showDialog(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Set Monthly Budget'),
+        content: TextField(
+          controller: controller,
+          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+          decoration: InputDecoration(
+            labelText: 'Monthly Budget',
+            prefixText: '₱ ',
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () async {
+              final success = await vm.updateBudget(controller.text);
+              if (context.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(success
+                        ? 'Budget updated successfully'
+                        : 'Please enter a valid amount'),
+                  ),
+                );
+              }
+              Navigator.pop(dialogContext);
+            },
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final vm = context.watch<DashboardViewModel>();
@@ -123,6 +167,7 @@ class _DashboardView extends StatelessWidget {
                     amount: '₱${vm.totalBudget.toStringAsFixed(2)}',
                     icon: Icons.account_balance_wallet,
                     backgroundColor: Colors.white.withValues(alpha: 0.2),
+                    onTap: () => _showEditBudgetDialog(context, vm),
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -327,17 +372,21 @@ class _SummaryCard extends StatelessWidget {
   final String amount;
   final IconData icon;
   final Color backgroundColor;
+  final VoidCallback? onTap;
 
   const _SummaryCard({
     required this.title,
     required this.amount,
     required this.icon,
     required this.backgroundColor,
+    this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
       decoration: BoxDecoration(
         color: backgroundColor,
         borderRadius: BorderRadius.circular(12),
@@ -373,6 +422,7 @@ class _SummaryCard extends StatelessWidget {
           ),
         ],
       ),
+    ),
     );
   }
 }
