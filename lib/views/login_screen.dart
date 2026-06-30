@@ -6,15 +6,18 @@ import '../services/service_locator.dart';
 import '../viewmodels/login_viewmodel.dart';
 
 class LoginScreen extends StatelessWidget {
-  const LoginScreen({super.key});
+  final LoginViewModel Function(BuildContext)? viewModelFactory;
+
+  const LoginScreen({super.key, this.viewModelFactory});
 
   @override
   Widget build(BuildContext context) {
     return ChangeNotifierProvider(
-      create: (_) => LoginViewModel(
-        authService: ServiceLocator().authService,
-        validationService: ServiceLocator().validationService,
-      ),
+      create: viewModelFactory ??
+          (_) => LoginViewModel(
+                authService: ServiceLocator().authService,
+                validationService: ServiceLocator().validationService,
+              ),
       child: const _LoginView(),
     );
   }

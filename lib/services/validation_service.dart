@@ -6,6 +6,7 @@ abstract class IValidationService {
   String? validatePassword(String password);
   String? validateAmount(String amount);
   String? validateName(String name);
+  String? validateUsername(String username);
   bool isValidEmail(String email);
 }
 
@@ -59,6 +60,17 @@ class ValidationService implements IValidationService {
     }
     if (name.length < 2) {
       return 'Name must be at least 2 characters';
+    }
+    return null;
+  }
+
+  @override
+  String? validateUsername(String username) {
+    if (username.isEmpty) {
+      return 'Username is required';
+    }
+    if (username.length < 5) {
+      return 'Username must be at least 5 characters';
     }
     return null;
   }
